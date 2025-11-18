@@ -1,11 +1,14 @@
 import React, { useRef, useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { StyleSheet, View, Platform } from 'react-native';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useTrackerStore } from '@/store/useTrackerStore';
 
 export default function TrackerMap() {
   const mapRef = useRef<MapView>(null);
   const { positions, lastPosition, settings } = useTrackerStore();
+  
+  // Use Apple Maps on iOS, Google Maps on Android
+  const mapProvider = Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE;
   
   useEffect(() => {
     if (lastPosition && mapRef.current) {
@@ -26,7 +29,7 @@ export default function TrackerMap() {
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_GOOGLE}
+        provider={mapProvider}
         mapType={mapType}
         initialRegion={{
           latitude: 35.9132,

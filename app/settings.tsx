@@ -8,10 +8,19 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTrackerStore } from '@/store/useTrackerStore';
-import { ChevronLeft, Save } from 'lucide-react-native';
+import { ChevronLeft, Save, Wifi, Eye, EyeOff } from 'lucide-react-native';
+import { Buffer } from 'buffer';
+
+// Polyfill Buffer for mqtt.js
+global.Buffer = Buffer;
+
+// Import mqtt - handle both default and named exports
+const mqttModule = require('mqtt');
+const mqtt = mqttModule.default || mqttModule;
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -20,7 +29,69 @@ export default function SettingsScreen() {
   const [broker, setBroker] = useState(mqttConfig.broker);
   const [port, setPort] = useState(mqttConfig.port.toString());
   const [topicRoot, setTopicRoot] = useState(mqttConfig.topicRoot);
+  const [username, setUsername] = useState(mqttConfig.username || '');
+  const [password, setPassword] = useState(mqttConfig.password || '');
   const [trailLength, setTrailLength] = useState(settings.trailLength.toString());
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [showPassword, setShowPassword] = useState(false);
+  
+  const testConnection = async () => {
+    const portNum = parseInt(port);
+    
+    if (!broker.trim()) {
+      Alert.alert('Required Field', 'Please enter a broker address');
+      return;
+    }
+    
+    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+      Alert.alert('Invalid Port', 'Please enter a valid port number (1-65535)');
+      return;
+    }
+    
+    setIsTestingConnection(true);
+    setConnectionStatus('idle');
+    
+    try {
+      const protocol = portNum === 8083 ? 'ws' : 'wss';
+      const url = `${protocol}://${broker}:${portNum}/mqtt`;
+      
+      const client = mqtt.connect(url, {
+        clientId: 'test-' + Math.random().toString(16).slice(2),
+        username: username.trim() || undefined,
+        password: password.trim() || undefined,
+        connectTimeout: 10000,
+        reconnectPeriod: 0,
+      });
+      
+      const timeout = setTimeout(() => {
+        client.end(true);
+        setIsTestingConnection(false);
+        setConnectionStatus('error');
+        Alert.alert('Connection Timeout', 'Could not connect to the MQTT broker. Please check your settings.');
+      }, 10000);
+      
+      client.on('connect', () => {
+        clearTimeout(timeout);
+        setIsTestingConnection(false);
+        setConnectionStatus('success');
+        Alert.alert('Success!', 'Successfully connected to the MQTT broker.');
+        client.end(true);
+      });
+      
+      client.on('error', (error: Error) => {
+        clearTimeout(timeout);
+        setIsTestingConnection(false);
+        setConnectionStatus('error');
+        Alert.alert('Connection Error', `Failed to connect: ${error.message}`);
+        client.end(true);
+      });
+    } catch (error) {
+      setIsTestingConnection(false);
+      setConnectionStatus('error');
+      Alert.alert('Error', 'An unexpected error occurred while testing the connection.');
+    }
+  };
   
   const handleSave = () => {
     const portNum = parseInt(port);
@@ -39,9 +110,17 @@ export default function SettingsScreen() {
     const configChanged = 
       broker !== mqttConfig.broker ||
       portNum !== mqttConfig.port ||
-      topicRoot !== mqttConfig.topicRoot;
+      topicRoot !== mqttConfig.topicRoot ||
+      username !== (mqttConfig.username || '') ||
+      password !== (mqttConfig.password || '');
     
-    updateMQTTConfig({ broker, port: portNum, topicRoot });
+    updateMQTTConfig({ 
+      broker, 
+      port: portNum, 
+      topicRoot,
+      username: username.trim() || undefined,
+      password: password.trim() || undefined,
+    });
     updateSettings({ trailLength: trailNum });
     
     if (configChanged) {
@@ -106,6 +185,66 @@ export default function SettingsScreen() {
             />
             <Text style={styles.hint}>Use # as wildcard for all subtopics</Text>
           </View>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Username (optional)</Text>
+            <TextInput
+              style={styles.input}
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Leave empty if not required"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password (optional)</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Leave empty if not required"
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeOff size={20} color="#6b7280" />
+                ) : (
+                  <Eye size={20} color="#6b7280" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={[
+              styles.testButton,
+              connectionStatus === 'success' && styles.testButtonSuccess,
+              connectionStatus === 'error' && styles.testButtonError,
+            ]} 
+            onPress={testConnection}
+            disabled={isTestingConnection}
+          >
+            {isTestingConnection ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Wifi size={20} color="#fff" />
+                <Text style={styles.testButtonText}>
+                  {connectionStatus === 'success' ? 'Connection Successful!' :
+                   connectionStatus === 'error' ? 'Connection Failed - Retry' :
+                   'Test Connection'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
         
         <View style={styles.section}>
@@ -307,5 +446,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+  },
+  testButton: {
+    backgroundColor: '#6366f1',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+    borderWidth: 2,
+    borderColor: '#6366f1',
+  },
+  testButtonSuccess: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  testButtonError: {
+    backgroundColor: '#ef4444',
+    borderColor: '#ef4444',
+  },
+  testButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+  },
+  eyeButton: {
+    padding: 10,
   },
 });

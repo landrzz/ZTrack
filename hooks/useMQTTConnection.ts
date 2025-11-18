@@ -1,15 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import mqtt, { MqttClient } from 'mqtt';
+import { Buffer } from 'buffer';
+import type { MqttClient } from 'mqtt';
 import { useTrackerStore } from '@/store/useTrackerStore';
 import { parseMQTTMessage, extractPosition } from '@/utils/mqtt';
+
+// Polyfill Buffer for mqtt.js
+global.Buffer = Buffer;
+
+// Import mqtt - handle both default and named exports
+const mqttModule = require('mqtt');
+const mqtt = mqttModule.default || mqttModule;
 
 export function useMQTTConnection() {
   const clientRef = useRef<MqttClient | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   
-  const { mqttConfig, addPosition, setConnected, isConnected } = useTrackerStore();
+  const { mqttConfig, units, addPosition, setConnected, isConnected } = useTrackerStore();
   
   const connect = () => {
     if (clientRef.current?.connected || isConnecting) {
@@ -19,8 +27,15 @@ export function useMQTTConnection() {
     setIsConnecting(true);
     
     try {
-      const client = mqtt.connect(`mqtt://${mqttConfig.broker}:${mqttConfig.port}`, {
-        reconnectPeriod: 5000,
+      // Use WebSocket connection for Expo Go compatibility
+      const protocol = mqttConfig.port === 8083 ? 'ws' : 'wss';
+      const url = `${protocol}://${mqttConfig.broker}:${mqttConfig.port}/mqtt`;
+      
+      const client = mqtt.connect(url, {
+        clientId: 'expo-' + Math.random().toString(16).slice(2),
+        username: mqttConfig.username,
+        password: mqttConfig.password,
+        reconnectPeriod: 2000,
         connectTimeout: 30000,
       });
       
@@ -29,7 +44,7 @@ export function useMQTTConnection() {
         setConnected(true);
         setIsConnecting(false);
         
-        client.subscribe(mqttConfig.topicRoot, (err) => {
+        client.subscribe(mqttConfig.topicRoot, (err: Error | null) => {
           if (err) {
             console.error('Subscription error:', err);
             Alert.alert('Subscription Error', 'Failed to subscribe to topic');
@@ -39,17 +54,21 @@ export function useMQTTConnection() {
         });
       });
       
-      client.on('message', (topic, message) => {
+      client.on('message', (topic: string, message: Buffer) => {
         const payload = parseMQTTMessage(message.toString());
         if (payload) {
           const position = extractPosition(payload);
-          if (position) {
-            addPosition(position);
+          if (position && position.nodeId) {
+            // Find the unit that matches this nodeId
+            const unit = units.find(u => u.nodeId === position.nodeId && u.enabled);
+            if (unit) {
+              addPosition(unit.id, position);
+            }
           }
         }
       });
       
-      client.on('error', (error) => {
+      client.on('error', (error: Error) => {
         console.error('MQTT Error:', error);
         setConnected(false);
         setIsConnecting(false);

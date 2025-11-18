@@ -8,10 +8,19 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTrackerStore, MarkerIcon } from '@/store/useTrackerStore';
-import { Dog, User, Car, Bike, MapPin, Star, Plus, Trash2, Check } from 'lucide-react-native';
+import { Dog, User, Car, Bike, MapPin, Star, Plus, Trash2, Check, Wifi, Eye, EyeOff } from 'lucide-react-native';
+import { Buffer } from 'buffer';
+
+// Polyfill Buffer for mqtt.js
+global.Buffer = Buffer;
+
+// Import mqtt - handle both default and named exports
+const mqttModule = require('mqtt');
+const mqtt = mqttModule.default || mqttModule;
 
 const ICON_OPTIONS: { value: MarkerIcon; label: string; Icon: any }[] = [
   { value: 'dog', label: 'Dog', Icon: Dog },
@@ -36,6 +45,9 @@ export default function OnboardingScreen() {
   const { mqttConfig, updateMQTTConfig, addUnit, completeOnboarding } = useTrackerStore();
   
   const [step, setStep] = useState(1);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [showPassword, setShowPassword] = useState(false);
   
   // MQTT Config
   const [broker, setBroker] = useState(mqttConfig.broker);
@@ -50,6 +62,63 @@ export default function OnboardingScreen() {
   const [unitNodeId, setUnitNodeId] = useState('');
   const [selectedIcon, setSelectedIcon] = useState<MarkerIcon>('dog');
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
+  
+  const testConnection = async () => {
+    const portNum = parseInt(port);
+    
+    if (!broker.trim()) {
+      Alert.alert('Required Field', 'Please enter a broker address');
+      return;
+    }
+    
+    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+      Alert.alert('Invalid Port', 'Please enter a valid port number (1-65535)');
+      return;
+    }
+    
+    setIsTestingConnection(true);
+    setConnectionStatus('idle');
+    
+    try {
+      const protocol = portNum === 8083 ? 'ws' : 'wss';
+      const url = `${protocol}://${broker}:${portNum}/mqtt`;
+      
+      const client = mqtt.connect(url, {
+        clientId: 'test-' + Math.random().toString(16).slice(2),
+        username: username.trim() || undefined,
+        password: password.trim() || undefined,
+        connectTimeout: 10000,
+        reconnectPeriod: 0, // Don't auto-reconnect for test
+      });
+      
+      const timeout = setTimeout(() => {
+        client.end(true);
+        setIsTestingConnection(false);
+        setConnectionStatus('error');
+        Alert.alert('Connection Timeout', 'Could not connect to the MQTT broker. Please check your settings.');
+      }, 10000);
+      
+      client.on('connect', () => {
+        clearTimeout(timeout);
+        setIsTestingConnection(false);
+        setConnectionStatus('success');
+        Alert.alert('Success!', 'Successfully connected to the MQTT broker.');
+        client.end(true);
+      });
+      
+      client.on('error', (error: Error) => {
+        clearTimeout(timeout);
+        setIsTestingConnection(false);
+        setConnectionStatus('error');
+        Alert.alert('Connection Error', `Failed to connect: ${error.message}`);
+        client.end(true);
+      });
+    } catch (error) {
+      setIsTestingConnection(false);
+      setConnectionStatus('error');
+      Alert.alert('Error', 'An unexpected error occurred while testing the connection.');
+    }
+  };
   
   const handleMQTTNext = () => {
     const portNum = parseInt(port);
@@ -174,17 +243,52 @@ export default function OnboardingScreen() {
             
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password (optional)</Text>
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Leave empty if not required"
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Leave empty if not required"
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} color="#6b7280" />
+                  ) : (
+                    <Eye size={20} color="#6b7280" />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
+          
+          <TouchableOpacity 
+            style={[
+              styles.testButton,
+              connectionStatus === 'success' && styles.testButtonSuccess,
+              connectionStatus === 'error' && styles.testButtonError,
+            ]} 
+            onPress={testConnection}
+            disabled={isTestingConnection}
+          >
+            {isTestingConnection ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Wifi size={20} color="#fff" />
+                <Text style={styles.testButtonText}>
+                  {connectionStatus === 'success' ? 'Connection Successful!' :
+                   connectionStatus === 'error' ? 'Connection Failed - Retry' :
+                   'Test Connection'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
           
           <TouchableOpacity style={styles.primaryButton} onPress={handleMQTTNext}>
             <Text style={styles.primaryButtonText}>Next</Text>
@@ -451,5 +555,48 @@ const styles = StyleSheet.create({
   },
   flexButton: {
     flex: 2,
+  },
+  testButton: {
+    backgroundColor: '#6366f1',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#6366f1',
+  },
+  testButtonSuccess: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  testButtonError: {
+    backgroundColor: '#ef4444',
+    borderColor: '#ef4444',
+  },
+  testButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#111827',
+  },
+  eyeButton: {
+    padding: 12,
   },
 });

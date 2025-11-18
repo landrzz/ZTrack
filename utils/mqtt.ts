@@ -4,6 +4,8 @@ export interface MeshtasticPayload {
   altitude?: number;
   time?: number;
   PDOP?: number;
+  from?: string; // Node ID of the sender
+  sender?: string; // Alternative field for node ID
   [key: string]: any;
 }
 
@@ -30,8 +32,10 @@ export function extractPosition(payload: MeshtasticPayload) {
   }
   
   const coords = convertCoordinates(payload.latitude_i, payload.longitude_i);
+  const nodeId = payload.from || payload.sender;
   
   return {
+    nodeId,
     latitude: coords.latitude,
     longitude: coords.longitude,
     timestamp: payload.time || Date.now(),
