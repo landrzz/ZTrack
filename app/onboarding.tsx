@@ -80,8 +80,17 @@ export default function OnboardingScreen() {
     setConnectionStatus('idle');
     
     try {
-      const protocol = portNum === 8083 ? 'ws' : 'wss';
-      const url = `${protocol}://${broker}:${portNum}/mqtt`;
+      // Determine protocol based on port
+      let url: string;
+      if (portNum === 8083) {
+        url = `ws://${broker}:${portNum}/mqtt`;
+      } else if (portNum === 8084) {
+        url = `wss://${broker}:${portNum}/mqtt`;
+      } else if (portNum === 8883) {
+        url = `mqtts://${broker}:${portNum}`;
+      } else {
+        url = `mqtt://${broker}:${portNum}`;
+      }
       
       const client = mqtt.connect(url, {
         clientId: 'test-' + Math.random().toString(16).slice(2),

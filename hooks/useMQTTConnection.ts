@@ -27,12 +27,21 @@ export function useMQTTConnection() {
     setIsConnecting(true);
     
     try {
-      // Use WebSocket connection for Expo Go compatibility
-      const protocol = mqttConfig.port === 8083 ? 'ws' : 'wss';
-      const url = `${protocol}://${mqttConfig.broker}:${mqttConfig.port}/mqtt`;
+      // Use native MQTT for development builds (supports TCP)
+      // Port 1883 = mqtt://, Port 8883 = mqtts://, Port 8083/8084 = ws://wss://
+      let url: string;
+      if (mqttConfig.port === 8083) {
+        url = `ws://${mqttConfig.broker}:${mqttConfig.port}/mqtt`;
+      } else if (mqttConfig.port === 8084) {
+        url = `wss://${mqttConfig.broker}:${mqttConfig.port}/mqtt`;
+      } else if (mqttConfig.port === 8883) {
+        url = `mqtts://${mqttConfig.broker}:${mqttConfig.port}`;
+      } else {
+        url = `mqtt://${mqttConfig.broker}:${mqttConfig.port}`;
+      }
       
       const client = mqtt.connect(url, {
-        clientId: 'expo-' + Math.random().toString(16).slice(2),
+        clientId: 'ztrack-' + Math.random().toString(16).slice(2),
         username: mqttConfig.username,
         password: mqttConfig.password,
         reconnectPeriod: 2000,

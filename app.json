@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "config": {
         "googleMapsApiKey": "YOUR_IOS_API_KEY"
-      }
+      },
+      "bundleIdentifier": "com.landrzz.test-tempo"
     },
     "android": {
       "adaptiveIcon": {

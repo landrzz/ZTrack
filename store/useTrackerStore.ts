@@ -66,7 +66,7 @@ export const useTrackerStore = create<TrackerState>()(
       isConnected: false,
       mqttConfig: {
         broker: 'mqtt.meshtastic.org',
-        port: 8084, // WebSocket Secure port (wss://)
+        port: 1883, // Native MQTT port (mqtt://)
         topicRoot: 'msh/US/2/json/#',
       },
       settings: {
