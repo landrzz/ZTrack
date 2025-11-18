@@ -8,19 +8,10 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTrackerStore, MarkerIcon } from '@/store/useTrackerStore';
-import { Dog, User, Car, Bike, MapPin, Star, Plus, Trash2, Check, Wifi, Eye, EyeOff } from 'lucide-react-native';
-import { Buffer } from 'buffer';
-
-// Polyfill Buffer for mqtt.js
-global.Buffer = Buffer;
-
-// Import mqtt - handle both default and named exports
-const mqttModule = require('mqtt');
-const mqtt = mqttModule.default || mqttModule;
+import { Dog, User, Car, Bike, MapPin, Star, Check } from 'lucide-react-native';
 
 const ICON_OPTIONS: { value: MarkerIcon; label: string; Icon: any }[] = [
   { value: 'dog', label: 'Dog', Icon: Dog },
@@ -42,130 +33,17 @@ const COLOR_OPTIONS = [
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { mqttConfig, updateMQTTConfig, addUnit, completeOnboarding } = useTrackerStore();
+  const { addUnit, completeOnboarding } = useTrackerStore();
   
-  const [step, setStep] = useState(1);
-  const [isTestingConnection, setIsTestingConnection] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [showPassword, setShowPassword] = useState(false);
-  
-  // MQTT Config
-  const [broker, setBroker] = useState(mqttConfig.broker);
-  const [port, setPort] = useState(mqttConfig.port.toString());
-  const [topicRoot, setTopicRoot] = useState(mqttConfig.topicRoot);
-  const [username, setUsername] = useState(mqttConfig.username || '');
-  const [password, setPassword] = useState(mqttConfig.password || '');
-  
-  // Unit Config
   const [unitName, setUnitName] = useState('');
   const [unitAlias, setUnitAlias] = useState('');
   const [unitNodeId, setUnitNodeId] = useState('');
   const [selectedIcon, setSelectedIcon] = useState<MarkerIcon>('dog');
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
   
-  const testConnection = async () => {
-    const portNum = parseInt(port);
-    
-    if (!broker.trim()) {
-      Alert.alert('Required Field', 'Please enter a broker address');
-      return;
-    }
-    
-    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
-      Alert.alert('Invalid Port', 'Please enter a valid port number (1-65535)');
-      return;
-    }
-    
-    setIsTestingConnection(true);
-    setConnectionStatus('idle');
-    
-    try {
-      // Determine protocol based on port
-      let url: string;
-      if (portNum === 8083) {
-        url = `ws://${broker}:${portNum}/mqtt`;
-      } else if (portNum === 8084) {
-        url = `wss://${broker}:${portNum}/mqtt`;
-      } else if (portNum === 8883) {
-        url = `mqtts://${broker}:${portNum}`;
-      } else {
-        url = `mqtt://${broker}:${portNum}`;
-      }
-      
-      const client = mqtt.connect(url, {
-        clientId: 'test-' + Math.random().toString(16).slice(2),
-        username: username.trim() || undefined,
-        password: password.trim() || undefined,
-        connectTimeout: 10000,
-        reconnectPeriod: 0, // Don't auto-reconnect for test
-      });
-      
-      const timeout = setTimeout(() => {
-        client.end(true);
-        setIsTestingConnection(false);
-        setConnectionStatus('error');
-        console.log('❌ Connection timeout');
-      }, 10000);
-      
-      client.on('connect', () => {
-        clearTimeout(timeout);
-        setIsTestingConnection(false);
-        setConnectionStatus('success');
-        console.log('✅ Test connection successful');
-        client.end(true);
-      });
-      
-      client.on('error', (error: Error) => {
-        clearTimeout(timeout);
-        setIsTestingConnection(false);
-        setConnectionStatus('error');
-        console.log('❌ Test connection error:', error.message);
-        client.end(true);
-      });
-    } catch (error) {
-      setIsTestingConnection(false);
-      setConnectionStatus('error');
-      console.log('❌ Test connection exception:', error);
-    }
-  };
-  
-  const handleMQTTNext = () => {
-    const portNum = parseInt(port);
-    
-    if (!broker.trim()) {
-      Alert.alert('Required Field', 'Please enter a broker address');
-      return;
-    }
-    
-    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
-      Alert.alert('Invalid Port', 'Please enter a valid port number (1-65535)');
-      return;
-    }
-    
-    if (!topicRoot.trim()) {
-      Alert.alert('Required Field', 'Please enter a topic root');
-      return;
-    }
-    
-    updateMQTTConfig({ 
-      broker, 
-      port: portNum, 
-      topicRoot,
-      username: username.trim() || undefined,
-      password: password.trim() || undefined,
-    });
-    
-    setStep(2);
-  };
-  
-  const handleUnitComplete = () => {
+  const handleComplete = () => {
     if (!unitName.trim()) {
-      Alert.alert('Required Field', 'Please enter a unit name');
-      return;
-    }
-    
-    if (!unitAlias.trim()) {
-      Alert.alert('Required Field', 'Please enter a unit alias');
+      Alert.alert('Required Field', 'Please enter a tracker name');
       return;
     }
     
@@ -174,12 +52,13 @@ export default function OnboardingScreen() {
       return;
     }
     
+    // Add the first unit
     addUnit({
       id: Date.now().toString(),
       name: unitName.trim(),
-      alias: unitAlias.trim(),
-      nodeId: unitNodeId.trim(),
+      alias: unitAlias.trim() || unitName.trim(),
       icon: selectedIcon,
+      nodeId: unitNodeId.trim(),
       color: selectedColor,
       enabled: true,
     });
@@ -188,155 +67,42 @@ export default function OnboardingScreen() {
     router.replace('/');
   };
   
-  if (step === 1) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Welcome to LoRa Tracker</Text>
-            <Text style={styles.subtitle}>Let's set up your MQTT connection</Text>
-          </View>
-          
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>MQTT Broker Configuration</Text>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Broker Address *</Text>
-              <TextInput
-                style={styles.input}
-                value={broker}
-                onChangeText={setBroker}
-                placeholder="mqtt.meshtastic.org"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Port *</Text>
-              <TextInput
-                style={styles.input}
-                value={port}
-                onChangeText={setPort}
-                placeholder="1883"
-                keyboardType="number-pad"
-              />
-            </View>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Topic Root *</Text>
-              <TextInput
-                style={styles.input}
-                value={topicRoot}
-                onChangeText={setTopicRoot}
-                placeholder="msh/US/2/json/#"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <Text style={styles.hint}>
-                Example: msh/US/2/json/!Z001NODEID/# or msh/US/2/json/#
-              </Text>
-            </View>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Username (optional)</Text>
-              <TextInput
-                style={styles.input}
-                value={username}
-                onChangeText={setUsername}
-                placeholder="Leave empty if not required"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password (optional)</Text>
-              <View style={styles.passwordContainer}>
-                <TextInput
-                  style={styles.passwordInput}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Leave empty if not required"
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <TouchableOpacity
-                  style={styles.eyeButton}
-                  onPress={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff size={20} color="#6b7280" />
-                  ) : (
-                    <Eye size={20} color="#6b7280" />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-          
-          <TouchableOpacity 
-            style={[
-              styles.testButton,
-              connectionStatus === 'success' && styles.testButtonSuccess,
-              connectionStatus === 'error' && styles.testButtonError,
-            ]} 
-            onPress={testConnection}
-            disabled={isTestingConnection}
-          >
-            {isTestingConnection ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Wifi size={20} color="#fff" />
-                <Text style={styles.testButtonText}>
-                  {connectionStatus === 'success' ? 'Connection Successful!' :
-                   connectionStatus === 'error' ? 'Connection Failed - Retry' :
-                   'Test Connection'}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.primaryButton} onPress={handleMQTTNext}>
-            <Text style={styles.primaryButtonText}>Next</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-  
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Add Your First Tracker</Text>
-          <Text style={styles.subtitle}>Configure the device you want to track</Text>
+          <Text style={styles.title}>Welcome to ZTrack</Text>
+          <Text style={styles.subtitle}>Let's set up your first tracker</Text>
         </View>
         
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Tracker Details</Text>
+          <Text style={styles.cardTitle}>Tracker Configuration</Text>
+          <Text style={styles.cardDescription}>
+            MQTT broker configuration is managed server-side. Make sure your sync_service is running and configured.
+          </Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Device Name *</Text>
+            <Text style={styles.label}>Tracker Name *</Text>
             <TextInput
               style={styles.input}
               value={unitName}
               onChangeText={setUnitName}
-              placeholder="e.g., Z Tracker"
+              placeholder="e.g., Zeke's Collar"
+              autoCapitalize="words"
             />
+            <Text style={styles.hint}>A friendly name for this tracker</Text>
           </View>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Display Alias *</Text>
+            <Text style={styles.label}>Short Name (optional)</Text>
             <TextInput
               style={styles.input}
               value={unitAlias}
               onChangeText={setUnitAlias}
-              placeholder="e.g., Max's Collar"
+              placeholder="e.g., Zeke"
+              autoCapitalize="words"
             />
-            <Text style={styles.hint}>This name will appear on the map</Text>
+            <Text style={styles.hint}>Used for quick identification</Text>
           </View>
           
           <View style={styles.inputGroup}>
@@ -345,36 +111,36 @@ export default function OnboardingScreen() {
               style={styles.input}
               value={unitNodeId}
               onChangeText={setUnitNodeId}
-              placeholder="e.g., !Z001NODEID"
-              autoCapitalize="characters"
+              placeholder="e.g., !9e75c710"
+              autoCapitalize="none"
               autoCorrect={false}
             />
-            <Text style={styles.hint}>The Meshtastic node ID for this device</Text>
+            <Text style={styles.hint}>The Meshtastic node ID to track (found in device settings)</Text>
           </View>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Map Icon</Text>
+            <Text style={styles.label}>Icon</Text>
             <View style={styles.iconGrid}>
-              {ICON_OPTIONS.map(({ value, label, Icon }) => (
+              {ICON_OPTIONS.map((option) => (
                 <TouchableOpacity
-                  key={value}
+                  key={option.value}
                   style={[
-                    styles.iconOption,
-                    selectedIcon === value && styles.iconOptionActive,
+                    styles.iconButton,
+                    selectedIcon === option.value && styles.iconButtonActive,
                   ]}
-                  onPress={() => setSelectedIcon(value)}
+                  onPress={() => setSelectedIcon(option.value)}
                 >
-                  <Icon 
-                    size={24} 
-                    color={selectedIcon === value ? '#fff' : '#6b7280'} 
+                  <option.Icon
+                    size={24}
+                    color={selectedIcon === option.value ? '#fff' : '#6b7280'}
                   />
                   <Text
                     style={[
                       styles.iconLabel,
-                      selectedIcon === value && styles.iconLabelActive,
+                      selectedIcon === option.value && styles.iconLabelActive,
                     ]}
                   >
-                    {label}
+                    {option.label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -382,16 +148,20 @@ export default function OnboardingScreen() {
           </View>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Trail Color</Text>
+            <Text style={styles.label}>Color</Text>
             <View style={styles.colorGrid}>
               {COLOR_OPTIONS.map((color) => (
                 <TouchableOpacity
                   key={color}
-                  style={[styles.colorOption, { backgroundColor: color }]}
+                  style={[
+                    styles.colorButton,
+                    { backgroundColor: color },
+                    selectedColor === color && styles.colorButtonActive,
+                  ]}
                   onPress={() => setSelectedColor(color)}
                 >
                   {selectedColor === color && (
-                    <Check size={20} color="#fff" />
+                    <Check size={20} color="#fff" strokeWidth={3} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -399,21 +169,13 @@ export default function OnboardingScreen() {
           </View>
         </View>
         
-        <View style={styles.buttonRow}>
-          <TouchableOpacity 
-            style={styles.secondaryButton} 
-            onPress={() => setStep(1)}
-          >
-            <Text style={styles.secondaryButtonText}>Back</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.primaryButton, styles.flexButton]} 
-            onPress={handleUnitComplete}
-          >
-            <Text style={styles.primaryButtonText}>Complete Setup</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.completeButton} onPress={handleComplete}>
+          <Text style={styles.completeButtonText}>Complete Setup</Text>
+        </TouchableOpacity>
+        
+        <Text style={styles.footerNote}>
+          You can add more trackers and change settings later
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -425,10 +187,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
   },
   content: {
-    padding: 20,
+    padding: 24,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 32,
+    alignItems: 'center',
   },
   title: {
     fontSize: 28,
@@ -444,21 +207,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 4,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  cardDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 20,
+    lineHeight: 20,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
@@ -470,40 +239,38 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
     color: '#111827',
   },
   hint: {
     fontSize: 12,
     color: '#6b7280',
-    marginTop: 6,
+    marginTop: 4,
   },
   iconGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 12,
   },
-  iconOption: {
-    flex: 1,
-    minWidth: '30%',
+  iconButton: {
+    width: 80,
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 8,
-    borderRadius: 10,
-    borderWidth: 2,
+    borderRadius: 8,
+    borderWidth: 1,
     borderColor: '#e5e7eb',
     backgroundColor: '#fff',
   },
-  iconOptionActive: {
+  iconButtonActive: {
     backgroundColor: '#3b82f6',
     borderColor: '#3b82f6',
   },
   iconLabel: {
     fontSize: 12,
-    fontWeight: '600',
     color: '#6b7280',
     marginTop: 4,
   },
@@ -514,21 +281,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  colorOption: {
+  colorButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  primaryButton: {
+  colorButtonActive: {
+    borderColor: '#111827',
+    borderWidth: 3,
+  },
+  completeButton: {
     backgroundColor: '#3b82f6',
     paddingVertical: 16,
     borderRadius: 12,
@@ -539,73 +305,15 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  primaryButtonText: {
+  completeButtonText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
   },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  secondaryButton: {
-    flex: 1,
-    backgroundColor: '#fff',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#374151',
-  },
-  flexButton: {
-    flex: 2,
-  },
-  testButton: {
-    backgroundColor: '#6366f1',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: '#6366f1',
-  },
-  testButtonSuccess: {
-    backgroundColor: '#10b981',
-    borderColor: '#10b981',
-  },
-  testButtonError: {
-    backgroundColor: '#ef4444',
-    borderColor: '#ef4444',
-  },
-  testButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 10,
-  },
-  passwordInput: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#111827',
-  },
-  eyeButton: {
-    padding: 12,
+  footerNote: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: '#9ca3af',
+    marginTop: 16,
   },
 });

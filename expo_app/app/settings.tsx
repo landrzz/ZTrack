@@ -8,141 +8,39 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
-  ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTrackerStore } from '@/store/useTrackerStore';
-import { ChevronLeft, Save, Wifi, Eye, EyeOff } from 'lucide-react-native';
-import { Buffer } from 'buffer';
-
-// Polyfill Buffer for mqtt.js
-global.Buffer = Buffer;
-
-// Import mqtt - handle both default and named exports
-const mqttModule = require('mqtt');
-const mqtt = mqttModule.default || mqttModule;
+import { ChevronLeft, Save, Map as MapIcon, Server, ChevronRight } from 'lucide-react-native';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { mqttConfig, settings, updateMQTTConfig, updateSettings } = useTrackerStore();
+  const { settings, updateSettings } = useTrackerStore();
   
-  const [broker, setBroker] = useState(mqttConfig.broker);
-  const [port, setPort] = useState(mqttConfig.port.toString());
-  const [topicRoot, setTopicRoot] = useState(mqttConfig.topicRoot);
-  const [username, setUsername] = useState(mqttConfig.username || '');
-  const [password, setPassword] = useState(mqttConfig.password || '');
   const [trailLength, setTrailLength] = useState(settings.trailLength.toString());
-  const [isTestingConnection, setIsTestingConnection] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [showPassword, setShowPassword] = useState(false);
-  
-  const testConnection = async () => {
-    const portNum = parseInt(port);
-    
-    if (!broker.trim()) {
-      Alert.alert('Required Field', 'Please enter a broker address');
-      return;
-    }
-    
-    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
-      Alert.alert('Invalid Port', 'Please enter a valid port number (1-65535)');
-      return;
-    }
-    
-    setIsTestingConnection(true);
-    setConnectionStatus('idle');
-    
-    try {
-      // Determine protocol based on port
-      let url: string;
-      if (portNum === 8083) {
-        url = `ws://${broker}:${portNum}/mqtt`;
-      } else if (portNum === 8084) {
-        url = `wss://${broker}:${portNum}/mqtt`;
-      } else if (portNum === 8883) {
-        url = `mqtts://${broker}:${portNum}`;
-      } else {
-        url = `mqtt://${broker}:${portNum}`;
-      }
-      
-      const client = mqtt.connect(url, {
-        clientId: 'test-' + Math.random().toString(16).slice(2),
-        username: username.trim() || undefined,
-        password: password.trim() || undefined,
-        connectTimeout: 10000,
-        reconnectPeriod: 0,
-      });
-      
-      const timeout = setTimeout(() => {
-        client.end(true);
-        setIsTestingConnection(false);
-        setConnectionStatus('error');
-        console.log('❌ Connection timeout');
-      }, 10000);
-      
-      client.on('connect', () => {
-        clearTimeout(timeout);
-        setIsTestingConnection(false);
-        setConnectionStatus('success');
-        console.log('✅ Test connection successful');
-        client.end(true);
-      });
-      
-      client.on('error', (error: Error) => {
-        clearTimeout(timeout);
-        setIsTestingConnection(false);
-        setConnectionStatus('error');
-        console.log('❌ Test connection error:', error.message);
-        client.end(true);
-      });
-    } catch (error) {
-      setIsTestingConnection(false);
-      setConnectionStatus('error');
-      console.log('❌ Test connection exception:', error);
-    }
-  };
+  const [mapStyle, setMapStyle] = useState<'standard' | 'satellite' | 'hybrid'>(settings.mapStyle);
+  const [showTrail, setShowTrail] = useState(settings.showTrail);
+  const [autoCenter, setAutoCenter] = useState(settings.autoCenter);
   
   const handleSave = () => {
-    const portNum = parseInt(port);
     const trailNum = parseInt(trailLength);
-    
-    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
-      Alert.alert('Invalid Port', 'Please enter a valid port number (1-65535)');
-      return;
-    }
     
     if (isNaN(trailNum) || trailNum < 10 || trailNum > 1000) {
       Alert.alert('Invalid Trail Length', 'Please enter a trail length between 10 and 1000');
       return;
     }
     
-    const configChanged = 
-      broker !== mqttConfig.broker ||
-      portNum !== mqttConfig.port ||
-      topicRoot !== mqttConfig.topicRoot ||
-      username !== (mqttConfig.username || '') ||
-      password !== (mqttConfig.password || '');
-    
-    updateMQTTConfig({ 
-      broker, 
-      port: portNum, 
-      topicRoot,
-      username: username.trim() || undefined,
-      password: password.trim() || undefined,
+    updateSettings({
+      trailLength: trailNum,
+      mapStyle,
+      showTrail,
+      autoCenter,
     });
-    updateSettings({ trailLength: trailNum });
     
-    if (configChanged) {
-      Alert.alert(
-        'Settings Saved',
-        'MQTT configuration changed. The connection will be restarted.',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
-    } else {
-      Alert.alert('Settings Saved', 'Your settings have been updated.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
-    }
+    Alert.alert('Settings Saved', 'Your settings have been updated.', [
+      { text: 'OK', onPress: () => router.back() },
+    ]);
   };
   
   return (
@@ -157,102 +55,23 @@ export default function SettingsScreen() {
       
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>MQTT Configuration</Text>
+          <Text style={styles.sectionTitle}>Server Configuration</Text>
+          <Text style={styles.sectionSubtitle}>
+            Manage MQTT broker connections for tracking devices
+          </Text>
           
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Broker Address</Text>
-            <TextInput
-              style={styles.input}
-              value={broker}
-              onChangeText={setBroker}
-              placeholder="mqtt.meshtastic.org"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Port</Text>
-            <TextInput
-              style={styles.input}
-              value={port}
-              onChangeText={setPort}
-              placeholder="1883"
-              keyboardType="number-pad"
-            />
-          </View>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Topic Root</Text>
-            <TextInput
-              style={styles.input}
-              value={topicRoot}
-              onChangeText={setTopicRoot}
-              placeholder="msh/US/NC/bennett/#"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <Text style={styles.hint}>Use # as wildcard for all subtopics</Text>
-          </View>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Username (optional)</Text>
-            <TextInput
-              style={styles.input}
-              value={username}
-              onChangeText={setUsername}
-              placeholder="Leave empty if not required"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password (optional)</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Leave empty if not required"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff size={20} color="#6b7280" />
-                ) : (
-                  <Eye size={20} color="#6b7280" />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          <TouchableOpacity 
-            style={[
-              styles.testButton,
-              connectionStatus === 'success' && styles.testButtonSuccess,
-              connectionStatus === 'error' && styles.testButtonError,
-            ]} 
-            onPress={testConnection}
-            disabled={isTestingConnection}
+          <TouchableOpacity
+            style={styles.navigationButton}
+            onPress={() => router.push('/brokers')}
           >
-            {isTestingConnection ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Wifi size={20} color="#fff" />
-                <Text style={styles.testButtonText}>
-                  {connectionStatus === 'success' ? 'Connection Successful!' :
-                   connectionStatus === 'error' ? 'Connection Failed - Retry' :
-                   'Test Connection'}
-                </Text>
-              </>
-            )}
+            <View style={styles.navigationButtonContent}>
+              <Server size={20} color="#3b82f6" />
+              <View style={styles.navigationButtonText}>
+                <Text style={styles.navigationButtonTitle}>MQTT Brokers</Text>
+                <Text style={styles.navigationButtonSubtitle}>Configure broker connections</Text>
+              </View>
+            </View>
+            <ChevronRight size={20} color="#9ca3af" />
           </TouchableOpacity>
         </View>
         
@@ -277,14 +96,14 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 style={[
                   styles.styleButton,
-                  settings.mapStyle === 'standard' && styles.styleButtonActive,
+                  mapStyle === 'standard' && styles.styleButtonActive,
                 ]}
-                onPress={() => updateSettings({ mapStyle: 'standard' })}
+                onPress={() => setMapStyle('standard')}
               >
                 <Text
                   style={[
                     styles.styleButtonText,
-                    settings.mapStyle === 'standard' && styles.styleButtonTextActive,
+                    mapStyle === 'standard' && styles.styleButtonTextActive,
                   ]}
                 >
                   Standard
@@ -294,14 +113,14 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 style={[
                   styles.styleButton,
-                  settings.mapStyle === 'satellite' && styles.styleButtonActive,
+                  mapStyle === 'satellite' && styles.styleButtonActive,
                 ]}
-                onPress={() => updateSettings({ mapStyle: 'satellite' })}
+                onPress={() => setMapStyle('satellite')}
               >
                 <Text
                   style={[
                     styles.styleButtonText,
-                    settings.mapStyle === 'satellite' && styles.styleButtonTextActive,
+                    mapStyle === 'satellite' && styles.styleButtonTextActive,
                   ]}
                 >
                   Satellite
@@ -311,20 +130,46 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 style={[
                   styles.styleButton,
-                  settings.mapStyle === 'hybrid' && styles.styleButtonActive,
+                  mapStyle === 'hybrid' && styles.styleButtonActive,
                 ]}
-                onPress={() => updateSettings({ mapStyle: 'hybrid' })}
+                onPress={() => setMapStyle('hybrid')}
               >
                 <Text
                   style={[
                     styles.styleButtonText,
-                    settings.mapStyle === 'hybrid' && styles.styleButtonTextActive,
+                    mapStyle === 'hybrid' && styles.styleButtonTextActive,
                   ]}
                 >
                   Hybrid
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+          
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Show Trail</Text>
+              <Text style={styles.settingHint}>Display historical path on map</Text>
+            </View>
+            <Switch
+              value={showTrail}
+              onValueChange={setShowTrail}
+              trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+              thumbColor={showTrail ? '#3b82f6' : '#f3f4f6'}
+            />
+          </View>
+          
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Auto Center</Text>
+              <Text style={styles.settingHint}>Follow tracker position on map</Text>
+            </View>
+            <Switch
+              value={autoCenter}
+              onValueChange={setAutoCenter}
+              trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+              thumbColor={autoCenter ? '#3b82f6' : '#f3f4f6'}
+            />
           </View>
         </View>
         
@@ -384,7 +229,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#111827',
+    marginBottom: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
     marginBottom: 16,
+    lineHeight: 18,
   },
   inputGroup: {
     marginBottom: 16,
@@ -436,6 +287,27 @@ const styles = StyleSheet.create({
   styleButtonTextActive: {
     color: '#fff',
   },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  settingInfo: {
+    flex: 1,
+  },
+  settingLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 2,
+  },
+  settingHint: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -456,47 +328,33 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
-  testButton: {
-    backgroundColor: '#6366f1',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 8,
-    borderWidth: 2,
-    borderColor: '#6366f1',
-  },
-  testButtonSuccess: {
-    backgroundColor: '#10b981',
-    borderColor: '#10b981',
-  },
-  testButtonError: {
-    backgroundColor: '#ef4444',
-    borderColor: '#ef4444',
-  },
-  testButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  passwordContainer: {
+  navigationButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
     backgroundColor: '#f9fafb',
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    borderRadius: 8,
   },
-  passwordInput: {
+  navigationButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#111827',
   },
-  eyeButton: {
-    padding: 10,
+  navigationButtonText: {
+    flex: 1,
+  },
+  navigationButtonTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  navigationButtonSubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
   },
 });

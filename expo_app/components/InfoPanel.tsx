@@ -1,11 +1,30 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useTrackerStore } from '@/store/useTrackerStore';
-import { formatDistance, formatTimestamp } from '@/utils/mqtt';
+import { formatDistance, formatTimestamp } from '@/utils/format';
 import { MapPin, Clock, Activity, Navigation } from 'lucide-react-native';
+import { useQuery } from 'convex/react';
+import { api } from '../convex/_generated/api';
 
 export default function InfoPanel() {
-  const { lastPosition, deviceName, distanceTraveled, isConnected } = useTrackerStore();
+  const { units } = useTrackerStore();
+  
+  // Get the first enabled unit
+  const enabledUnit = units.find(u => u.enabled);
+  const deviceId = enabledUnit?.nodeId;
+  const deviceName = enabledUnit?.name || 'Tracker';
+  
+  // Fetch real-time position data from Convex
+  const lastPosition = useQuery(
+    api.positions.getLatestPosition,
+    deviceId ? { deviceId } : 'skip'
+  );
+  
+  // Connection status - consider connected if we have recent data
+  const isConnected = lastPosition ? (Date.now() - lastPosition.timestamp < 300000) : false; // 5 minutes
+  
+  // Calculate distance traveled (we'll need to implement this if needed)
+  const distanceTraveled = enabledUnit?.distanceTraveled || 0;
   
   return (
     <View style={styles.container}>
@@ -67,7 +86,7 @@ export default function InfoPanel() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 35,
     left: 16,
     right: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',

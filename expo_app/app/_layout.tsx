@@ -9,9 +9,15 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
 import "../global.css";
+import { ConvexProvider, ConvexReactClient } from "convex/react";
+import Constants from "expo-constants";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+// Initialize Convex client
+const convexUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_CONVEX_URL || process.env.EXPO_PUBLIC_CONVEX_URL;
+const convex = new ConvexReactClient(convexUrl!);
 
 export default function RootLayout() {
   const [loaded] = useFonts({
@@ -29,15 +35,20 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={DefaultTheme}>
-      <Stack
-        screenOptions={({ route }) => ({
-          headerShown: !route.name.startsWith("tempobook"),
-        })}
-      >
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <ConvexProvider client={convex}>
+      <ThemeProvider value={DefaultTheme}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="brokers" />
+          <Stack.Screen name="onboarding" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </ConvexProvider>
   );
 }

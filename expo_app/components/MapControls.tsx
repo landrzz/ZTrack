@@ -5,23 +5,41 @@ import { useTrackerStore } from '@/store/useTrackerStore';
 import { useRouter } from 'expo-router';
 
 export default function MapControls() {
-  const { settings, updateSettings, clearTrail } = useTrackerStore();
+  const { units, settings, updateSettings, clearTrail } = useTrackerStore();
   const router = useRouter();
+  
+  // Get the first enabled unit
+  const enabledUnit = units.find(u => u.enabled);
+  
+  const handleClearTrail = () => {
+    if (enabledUnit) {
+      clearTrail(enabledUnit.id);
+    }
+  };
+  
+  const handleToggleTrail = () => {
+    try {
+      updateSettings({ showTrail: !settings.showTrail });
+    } catch (error) {
+      console.error('Error toggling trail:', error);
+    }
+  };
   
   return (
     <View style={styles.container}>
       <TouchableOpacity
         style={styles.button}
-        onPress={() => updateSettings({ showTrail: !settings.showTrail })}
+        onPress={handleToggleTrail}
       >
         <Route size={24} color={settings.showTrail ? '#3b82f6' : '#6b7280'} />
       </TouchableOpacity>
       
       <TouchableOpacity
         style={styles.button}
-        onPress={clearTrail}
+        onPress={handleClearTrail}
+        disabled={!enabledUnit}
       >
-        <RotateCcw size={24} color="#6b7280" />
+        <RotateCcw size={24} color={enabledUnit ? '#6b7280' : '#d1d5db'} />
       </TouchableOpacity>
       
       <TouchableOpacity

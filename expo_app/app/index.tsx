@@ -1,16 +1,14 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, SafeAreaView } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import TrackerMap from '@/components/TrackerMap';
 import InfoPanel from '@/components/InfoPanel';
 import MapControls from '@/components/MapControls';
-import { useMQTTConnection } from '@/hooks/useMQTTConnection';
 import { useTrackerStore } from '@/store/useTrackerStore';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { hasCompletedOnboarding } = useTrackerStore();
-  useMQTTConnection();
   
   useEffect(() => {
     if (!hasCompletedOnboarding) {
@@ -23,13 +21,11 @@ export default function HomeScreen() {
   }
   
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <TrackerMap />
-        <MapControls />
-        <InfoPanel />
-      </View>
-    </SafeAreaView>
+    <View style={styles.container}>
+      <TrackerMap />
+      <MapControls />
+      <InfoPanel />
+    </View>
   );
 }
 

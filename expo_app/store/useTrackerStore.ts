@@ -9,13 +9,7 @@ export interface Position {
   accuracy?: number;
 }
 
-export interface MQTTConfig {
-  broker: string;
-  port: number;
-  topicRoot: string;
-  username?: string;
-  password?: string;
-}
+// MQTT configuration is now handled server-side in sync_service
 
 export type MarkerIcon = 'dog' | 'person' | 'car' | 'bike' | 'pin' | 'star';
 
@@ -41,14 +35,10 @@ export interface AppSettings {
 
 interface TrackerState {
   units: TrackedUnit[];
-  isConnected: boolean;
-  mqttConfig: MQTTConfig;
   settings: AppSettings;
   hasCompletedOnboarding: boolean;
   
   addPosition: (unitId: string, position: Position) => void;
-  setConnected: (connected: boolean) => void;
-  updateMQTTConfig: (config: Partial<MQTTConfig>) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
   clearTrail: (unitId: string) => void;
   addUnit: (unit: Omit<TrackedUnit, 'positions' | 'lastPosition' | 'distanceTraveled'>) => void;
@@ -63,12 +53,6 @@ export const useTrackerStore = create<TrackerState>()(
   persist(
     (set) => ({
       units: [],
-      isConnected: false,
-      mqttConfig: {
-        broker: 'mqtt.meshtastic.org',
-        port: 1883, // Native MQTT port (mqtt://)
-        topicRoot: 'msh/US/2/json/#',
-      },
       settings: {
         trailLength: 100,
         mapStyle: 'standard',
@@ -105,12 +89,6 @@ export const useTrackerStore = create<TrackerState>()(
         
         return { units: updatedUnits };
       }),
-      
-      setConnected: (connected) => set({ isConnected: connected }),
-      
-      updateMQTTConfig: (config) => set((state) => ({
-        mqttConfig: { ...state.mqttConfig, ...config },
-      })),
       
       updateSettings: (settings) => set((state) => ({
         settings: { ...state.settings, ...settings },

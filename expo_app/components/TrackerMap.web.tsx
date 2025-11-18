@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
 import { useTrackerStore } from '@/store/useTrackerStore';
+import { useQuery } from 'convex/react';
+import { api } from '../convex/_generated/api';
 
 declare global {
   interface Window {
@@ -17,14 +19,28 @@ export default function TrackerMap() {
   
   const { units, settings } = useTrackerStore();
   
-  // Get all positions from all enabled units
-  const allPositions = units
-    .filter(u => u.enabled)
-    .flatMap(u => u.positions);
+  // Get the first enabled unit's nodeId to track
+  const enabledUnit = units.find(u => u.enabled);
+  const deviceId = enabledUnit?.nodeId;
   
-  const lastPosition = units
-    .filter(u => u.enabled && u.lastPosition)
-    .map(u => u.lastPosition)[0];
+  // Fetch real-time position data from Convex
+  const lastPosition = useQuery(
+    api.positions.getLatestPosition,
+    deviceId ? { deviceId } : 'skip'
+  );
+  
+  // Fetch historical trail
+  const positionsData = useQuery(
+    api.positions.getHistory,
+    deviceId ? { deviceId, limit: settings.trailLength || 100 } : 'skip'
+  );
+  
+  // Convert Convex positions to the format expected by Google Maps
+  const allPositions = positionsData?.map(p => ({
+    latitude: p.latitude,
+    longitude: p.longitude,
+    timestamp: p.timestamp,
+  })).reverse() || [];
 
   useEffect(() => {
     // Load Google Maps script
@@ -86,7 +102,7 @@ export default function TrackerMap() {
     }
 
     // Update polyline (trail)
-    if (settings.showTrail && allPositions.length > 1) {
+    if (settings?.showTrail && allPositions.length > 1) {
       const path = allPositions.map(p => ({ lat: p.latitude, lng: p.longitude }));
       
       if (polylineRef.current) {
@@ -105,8 +121,26 @@ export default function TrackerMap() {
       polylineRef.current.setMap(null);
       polylineRef.current = null;
     }
-  }, [lastPosition, allPositions, settings.showTrail]);
+  }, [lastPosition, allPositions, settings?.showTrail]);
 
+  // Show loading state if we have a deviceId but no position yet
+  if (deviceId && !lastPosition) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text>Loading position data...</Text>
+      </View>
+    );
+  }
+  
+  // Show message if no unit is enabled
+  if (!deviceId) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text>No tracker enabled. Please configure a tracker in settings.</Text>
+      </View>
+    );
+  }
+  
   return (
     <View style={styles.container}>
       <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
