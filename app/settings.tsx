@@ -77,14 +77,14 @@ export default function SettingsScreen() {
         client.end(true);
         setIsTestingConnection(false);
         setConnectionStatus('error');
-        Alert.alert('Connection Timeout', 'Could not connect to the MQTT broker. Please check your settings.');
+        console.log('❌ Connection timeout');
       }, 10000);
       
       client.on('connect', () => {
         clearTimeout(timeout);
         setIsTestingConnection(false);
         setConnectionStatus('success');
-        Alert.alert('Success!', 'Successfully connected to the MQTT broker.');
+        console.log('✅ Test connection successful');
         client.end(true);
       });
       
@@ -92,13 +92,13 @@ export default function SettingsScreen() {
         clearTimeout(timeout);
         setIsTestingConnection(false);
         setConnectionStatus('error');
-        Alert.alert('Connection Error', `Failed to connect: ${error.message}`);
+        console.log('❌ Test connection error:', error.message);
         client.end(true);
       });
     } catch (error) {
       setIsTestingConnection(false);
       setConnectionStatus('error');
-      Alert.alert('Error', 'An unexpected error occurred while testing the connection.');
+      console.log('❌ Test connection exception:', error);
     }
   };
   

@@ -39,16 +39,15 @@ export function useMQTTConnection() {
       });
       
       client.on('connect', () => {
-        console.log('Connected to MQTT broker');
+        console.log('✅ Connected to MQTT broker');
         setConnected(true);
         setIsConnecting(false);
         
         client.subscribe(mqttConfig.topicRoot, (err: Error | null) => {
           if (err) {
-            console.error('Subscription error:', err);
-            alert('Failed to subscribe to topic');
+            console.error('❌ Subscription error:', err);
           } else {
-            console.log(`Subscribed to ${mqttConfig.topicRoot}`);
+            console.log(`✅ Subscribed to ${mqttConfig.topicRoot}`);
           }
         });
       });
@@ -62,39 +61,38 @@ export function useMQTTConnection() {
             const unit = units.find(u => u.nodeId === position.nodeId && u.enabled);
             if (unit) {
               addPosition(unit.id, position);
+              console.log(`📍 Position update for ${unit.name}`);
             }
           }
         }
       });
       
       client.on('error', (error: Error) => {
-        console.error('MQTT Error:', error);
+        console.error('❌ MQTT Error:', error.message);
         setConnected(false);
         setIsConnecting(false);
       });
       
       client.on('close', () => {
-        console.log('MQTT connection closed');
+        console.log('🔌 MQTT connection closed');
         setConnected(false);
         setIsConnecting(false);
         
         reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('Attempting to reconnect...');
+          console.log('🔄 Attempting to reconnect...');
           connect();
         }, 5000);
       });
       
       client.on('offline', () => {
-        console.log('MQTT client offline');
+        console.log('📴 MQTT client offline');
         setConnected(false);
-        alert('MQTT connection lost. Attempting to reconnect...');
       });
       
       clientRef.current = client;
     } catch (error) {
-      console.error('Connection error:', error);
+      console.error('❌ Connection error:', error);
       setIsConnecting(false);
-      alert('Failed to connect to MQTT broker');
     }
   };
   
