@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meshtastic Bridge Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 968px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #555;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        input[readonly] {
+            background: #edf2f7;
+            color: #4a5568;
+            cursor: not-allowed;
+            border-color: #cbd5e0;
+        }
+
+        .node-ids-input {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        .btn-danger:hover {
+            background: #c53030;
+        }
+
+        .btn-toggle {
+            background: #48bb78;
+            color: white;
+            padding: 8px 16px;
+            font-size: 13px;
+            margin-right: 8px;
+        }
+
+        .btn-toggle:hover {
+            background: #38a169;
+        }
+
+        .btn-toggle.disabled {
+            background: #cbd5e0;
+        }
+
+        .broker-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .broker-item {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s;
+        }
+
+        .broker-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+        }
+
+        .broker-item.disabled {
+            opacity: 0.6;
+            background: #edf2f7;
+        }
+
+        .broker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .broker-name {
+            font-weight: 700;
+            color: #2d3748;
+            font-size: 16px;
+        }
+
+        .broker-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-enabled {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-disabled {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .broker-details {
+            color: #4a5568;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .broker-detail {
+            margin-bottom: 4px;
+        }
+
+        .broker-detail strong {
+            color: #2d3748;
+            min-width: 80px;
+            display: inline-block;
+        }
+
+        .broker-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .code {
+            font-family: 'Monaco', 'Courier New', monospace;
+            background: #edf2f7;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 4px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #a0aec0;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        #status {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+
+        #status.success {
+            background: #c6f6d5;
+            color: #22543d;
+            display: block;
+        }
+
+        #status.error {
+            background: #fed7d7;
+            color: #742a2a;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌐 Meshtastic Bridge Admin</h1>
+            <p class="subtitle">Manage MQTT broker connections for your tracking network</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Add Broker Form -->
+            <div class="card">
+                <h2>➕ Add New Broker</h2>
+                <form id="brokerForm">
+                    <div class="form-group">
+                        <label for="name">Connection Name *</label>
+                        <input type="text" id="name" placeholder="My Meshtastic Network" required>
+                        <p class="help-text">A friendly name to identify this connection</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="broker">Broker Address *</label>
+                        <input type="text" id="broker" placeholder="mqtt.meshtastic.org" value="mqtt.meshtastic.org" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="port">Port *</label>
+                        <input type="number" id="port" value="1883" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" placeholder="optional">
+                        <p class="help-text">Locked to public credentials while using mqtt.meshtastic.org</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" placeholder="optional">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="topic">Topic *</label>
+                        <input type="text" id="topic" placeholder="msh/US/2/#" value="msh/US/2/#" required>
+                        <p class="help-text">MQTT topic pattern (use # for wildcard)</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nodeIds">Node IDs (optional)</label>
+                        <input type="text" id="nodeIds" class="node-ids-input" placeholder="!9e75c710, !abc12345">
+                        <p class="help-text">Comma-separated list of nodes to track (leave empty for all)</p>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add Broker Connection</button>
+                </form>
+
+                <div id="status"></div>
+            </div>
+
+            <!-- Broker List -->
+            <div class="card">
+                <h2>🔌 Active Connections</h2>
+                <div class="broker-list" id="brokerList">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📡</div>
+                        <p>No broker connections configured yet.</p>
+                        <p style="font-size: 12px; margin-top: 8px;">Add one using the form on the left.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Convex from unpkg CDN -->
+    <script src="https://unpkg.com/convex@latest/dist/browser.bundle.js"></script>
+    
+    <script>
+        // Global error handler
+        window.addEventListener('error', (e) => {
+            console.error('[AdminUI] Global error:', e.error);
+            alert('JavaScript Error: ' + e.error.message);
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            console.error('[AdminUI] Unhandled promise rejection:', e.reason);
+            alert('Promise Error: ' + e.reason);
+        });
+
+        console.log('[AdminUI] Script starting...');
+
+        // Wait for the page and Convex script to load
+        window.addEventListener('load', function() {
+            console.log('[AdminUI] Page loaded, initializing Convex client...');
+            
+            // Initialize Convex client using the global convex object
+            const CONVEX_URL = "https://utmost-porcupine-898.convex.cloud";
+            console.log('[AdminUI] Connecting to Convex at:', CONVEX_URL);
+            const client = new convex.ConvexHttpClient(CONVEX_URL);
+            console.log('[AdminUI] Convex client initialized');
+
+        // Default values
+        const MESHTASTIC_BROKER = 'mqtt.meshtastic.org';
+        const MESHTASTIC_USERNAME = 'meshdev';
+        const MESHTASTIC_PASSWORD = 'large4cats';
+        const DEFAULT_PORT = 1883;
+        const DEFAULT_TOPIC = 'msh/US/2/#';
+
+        // Form elements
+        const form = document.getElementById('brokerForm');
+        const brokerInput = document.getElementById('broker');
+        const portInput = document.getElementById('port');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const topicInput = document.getElementById('topic');
+        const nodeIdsInput = document.getElementById('nodeIds');
+
+        applyDefaultFieldValues();
+        updateCredentialLock();
+
+        // Convex function paths
+        const api = {
+            brokers: {
+                createBroker: "brokers:createBroker",
+                updateBroker: "brokers:updateBroker",
+                deleteBroker: "brokers:deleteBroker",
+                listBrokers: "brokers:listBrokers",
+            }
+        };
+
+        // Load brokers on page load
+        loadBrokers();
+
+        // Handle form submission
+        console.log('[AdminUI] Setting up form submit handler');
+        form.addEventListener('submit', async (e) => {
+            console.log('[AdminUI] Form submit event triggered');
+            e.preventDefault();
+            console.log('[AdminUI] Default prevented, calling addBroker()');
+            await addBroker();
+            console.log('[AdminUI] addBroker() completed');
+        });
+        console.log('[AdminUI] Form submit handler registered');
+
+        // Lock/unlock credentials based on broker
+        brokerInput.addEventListener('input', updateCredentialLock);
+        brokerInput.addEventListener('change', updateCredentialLock);
+
+        async function addBroker() {
+            console.log('[AdminUI] addBroker() called');
+            
+            const nodeIdsValue = nodeIdsInput.value;
+            const nodeIds = nodeIdsValue
+                ? nodeIdsValue.split(',').map(id => id.trim()).filter(id => id)
+                : undefined;
+
+            const payload = {
+                name: document.getElementById('name').value,
+                broker: brokerInput.value,
+                port: parseInt(portInput.value),
+                username: usernameInput.value || undefined,
+                password: passwordInput.value || undefined,
+                topic: topicInput.value,
+                nodeIds,
+                enabled: true,
+            };
+
+            console.log('[AdminUI] Payload prepared:', JSON.stringify(payload, null, 2));
+
+            try {
+                console.log('[AdminUI] Calling showStatus...');
+                showStatus('⏳ Adding broker connection...', 'success');
+
+                console.log('[AdminUI] Calling convex.mutation with:', api.brokers.createBroker);
+                console.log('[AdminUI] Mutation function path:', api.brokers.createBroker);
+                
+                const result = await client.mutation(api.brokers.createBroker, payload);
+                
+                console.log('[AdminUI] Mutation completed! Result:', result);
+
+                showStatus('✓ Broker added successfully! ID: ' + result, 'success');
+                form.reset();
+                portInput.value = DEFAULT_PORT;
+                brokerInput.value = MESHTASTIC_BROKER;
+                topicInput.value = DEFAULT_TOPIC;
+                updateCredentialLock();
+                
+                console.log('[AdminUI] Reloading broker list...');
+                await loadBrokers();
+                console.log('[AdminUI] Broker list reloaded');
+            } catch (error) {
+                console.error('[AdminUI] Failed to create broker:', error);
+                console.error('[AdminUI] Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    error: error
+                });
+                showStatus('✗ Error: ' + (error?.message || 'Unknown error'), 'error');
+                alert('Failed to create broker: ' + error.message);
+            }
+        }
+
+        function applyDefaultFieldValues() {
+            if (!brokerInput.value) {
+                brokerInput.value = MESHTASTIC_BROKER;
+            }
+            if (!portInput.value) {
+                portInput.value = DEFAULT_PORT;
+            }
+            if (!topicInput.value) {
+                topicInput.value = DEFAULT_TOPIC;
+            }
+            if (!usernameInput.value) {
+                usernameInput.value = MESHTASTIC_USERNAME;
+            }
+            if (!passwordInput.value) {
+                passwordInput.value = MESHTASTIC_PASSWORD;
+            }
+        }
+
+        function updateCredentialLock() {
+            const broker = (brokerInput.value || '').trim().toLowerCase();
+            const shouldLock = broker === MESHTASTIC_BROKER;
+
+            if (shouldLock) {
+                usernameInput.value = MESHTASTIC_USERNAME;
+                passwordInput.value = MESHTASTIC_PASSWORD;
+            }
+
+            usernameInput.readOnly = shouldLock;
+            passwordInput.readOnly = shouldLock;
+        }
+
+        async function loadBrokers() {
+            try {
+                const brokers = await client.query(api.brokers.listBrokers);
+                displayBrokers(brokers);
+            } catch (error) {
+                console.error('Error loading brokers:', error);
+                showStatus('✗ Error loading brokers: ' + error.message, 'error');
+            }
+        }
+
+        function displayBrokers(brokers) {
+            const container = document.getElementById('brokerList');
+            
+            if (!brokers || brokers.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📡</div>
+                        <p>No broker connections configured yet.</p>
+                        <p style="font-size: 12px; margin-top: 8px;">Add one using the form on the left.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = brokers.map(broker => `
+                <div class="broker-item ${broker.enabled ? '' : 'disabled'}">
+                    <div class="broker-header">
+                        <div class="broker-name">${escapeHtml(broker.name)}</div>
+                        <span class="broker-status ${broker.enabled ? 'status-enabled' : 'status-disabled'}">
+                            ${broker.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                    </div>
+                    <div class="broker-details">
+                        <div class="broker-detail">
+                            <strong>Broker:</strong> <span class="code">${escapeHtml(broker.broker)}:${broker.port}</span>
+                        </div>
+                        <div class="broker-detail">
+                            <strong>Topic:</strong> <span class="code">${escapeHtml(broker.topic)}</span>
+                        </div>
+                        ${broker.username ? `
+                        <div class="broker-detail">
+                            <strong>Username:</strong> <span class="code">${escapeHtml(broker.username)}</span>
+                        </div>
+                        ` : ''}
+                        ${broker.nodeIds && broker.nodeIds.length > 0 ? `
+                        <div class="broker-detail">
+                            <strong>Nodes:</strong> <span class="code">${broker.nodeIds.map(escapeHtml).join(', ')}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="broker-actions">
+                        <button class="btn btn-toggle ${broker.enabled ? '' : 'disabled'}" 
+                                onclick="toggleBroker('${broker._id}', ${!broker.enabled})">
+                            ${broker.enabled ? '⏸ Disable' : '▶️ Enable'}
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteBroker('${broker._id}', '${escapeHtml(broker.name)}')">
+                            🗑 Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.toggleBroker = async function(id, enabled) {
+            try {
+                await client.mutation(api.brokers.updateBroker, {
+                    id: id,
+                    enabled: enabled,
+                });
+                showStatus(`✓ Broker ${enabled ? 'enabled' : 'disabled'}`, 'success');
+                await loadBrokers();
+            } catch (error) {
+                showStatus('✗ Error: ' + error.message, 'error');
+            }
+        };
+
+        window.deleteBroker = async function(id, name) {
+            if (!confirm(`Are you sure you want to delete "${name}"?`)) {
+                return;
+            }
+
+            try {
+                await client.mutation(api.brokers.deleteBroker, { id });
+                showStatus('✓ Broker deleted', 'success');
+                await loadBrokers();
+            } catch (error) {
+                showStatus('✗ Error: ' + error.message, 'error');
+            }
+        };
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = '';
+            status.classList.add(type);
+            status.style.display = 'block';
+
+            console.log('[AdminUI] Status:', message);
+
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Refresh broker list every 10 seconds
+        setInterval(loadBrokers, 10000);
+        
+        }); // End of window.addEventListener('load')
+    </script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "name": "meshtastic-convex-bridge",
+  "version": "1.0.0",
+  "description": "MQTT bridge service that syncs Meshtastic position data to Convex",
+  "main": "dist/service.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/multi-broker-service.js",
+    "start:single": "node dist/service.js",
+    "dev": "ts-node src/multi-broker-service.ts",
+    "dev:single": "ts-node src/service.ts",
+    "admin": "node src/admin-server.js",
+    "watch": "tsc --watch",
+    "convex": "cd .. && npx convex dev"
+  },
+  "keywords": [
+    "meshtastic",
+    "mqtt",
+    "convex",
+    "lora"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "mqtt": "^5.3.4",
+    "convex": "^1.16.1",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

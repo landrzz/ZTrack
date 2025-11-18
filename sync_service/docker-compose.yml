@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  bridge:
+    build: .
+    container_name: meshtastic-bridge
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

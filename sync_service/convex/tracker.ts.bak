@@ -1,0 +1,116 @@
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+
+/**
+ * Log a position update from the Meshtastic device.
+ * This mutation is called by the bridge service.
+ */
+export const logPosition = mutation({
+  args: {
+    deviceId: v.string(),
+    latitude: v.number(),
+    longitude: v.number(),
+    altitude: v.optional(v.number()),
+    accuracy: v.optional(v.number()),
+    batteryLevel: v.optional(v.number()),
+    timestamp: v.number(),
+    rawPayload: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    // Validate coordinates are within valid ranges
+    if (args.latitude < -90 || args.latitude > 90) {
+      throw new Error(`Invalid latitude: ${args.latitude}`);
+    }
+    if (args.longitude < -180 || args.longitude > 180) {
+      throw new Error(`Invalid longitude: ${args.longitude}`);
+    }
+
+    // Insert the position record
+    const positionId = await ctx.db.insert("positions", {
+      deviceId: args.deviceId,
+      latitude: args.latitude,
+      longitude: args.longitude,
+      altitude: args.altitude,
+      accuracy: args.accuracy,
+      batteryLevel: args.batteryLevel,
+      timestamp: args.timestamp,
+      rawPayload: args.rawPayload || {},
+    });
+
+    console.log(`Logged position for device ${args.deviceId}: ${args.latitude}, ${args.longitude}`);
+    
+    return positionId;
+  },
+});
+
+/**
+ * Get the latest position for a specific device.
+ */
+export const getLatestPosition = query({
+  args: {
+    deviceId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const position = await ctx.db
+      .query("positions")
+      .withIndex("by_device_time", (q) => q.eq("deviceId", args.deviceId))
+      .order("desc")
+      .first();
+
+    return position;
+  },
+});
+
+/**
+ * Get position history for a device within a time range.
+ */
+export const getPositionHistory = query({
+  args: {
+    deviceId: v.string(),
+    startTime: v.optional(v.number()),
+    endTime: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Start with index query and order
+    let query = ctx.db
+      .query("positions")
+      .withIndex("by_device_time", (q) => q.eq("deviceId", args.deviceId))
+      .order("desc");
+
+    // Apply time filters if provided
+    if (args.startTime !== undefined) {
+      query = query.filter((q) => q.gte(q.field("timestamp"), args.startTime!));
+    }
+    if (args.endTime !== undefined) {
+      query = query.filter((q) => q.lte(q.field("timestamp"), args.endTime!));
+    }
+
+    // Apply limit if provided, otherwise default to 1000
+    const positions = await query.take(args.limit ?? 1000);
+
+    return positions;
+  },
+});
+
+/**
+ * Get all positions for all devices (useful for multi-device tracking).
+ */
+export const getAllLatestPositions = query({
+  handler: async (ctx) => {
+    // Get all unique device IDs
+    const allPositions = await ctx.db.query("positions").collect();
+    
+    // Group by device and get latest for each
+    const deviceMap = new Map<string, any>();
+    
+    for (const pos of allPositions) {
+      const existing = deviceMap.get(pos.deviceId);
+      if (!existing || pos.timestamp > existing.timestamp) {
+        deviceMap.set(pos.deviceId, pos);
+      }
+    }
+    
+    return Array.from(deviceMap.values());
+  },
+});

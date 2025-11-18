@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Convex Connection</title>
+</head>
+<body>
+    <h1>Testing Convex Connection</h1>
+    <button id="testBtn">Test Create Broker</button>
+    <button id="listBtn">List Brokers</button>
+    <pre id="output"></pre>
+
+    <script type="module">
+        import { ConvexHttpClient } from "https://cdn.jsdelivr.net/npm/convex@latest/dist/browser/index.mjs";
+
+        const CONVEX_URL = "https://utmost-porcupine-898.convex.cloud";
+        const output = document.getElementById('output');
+        
+        function log(msg) {
+            console.log(msg);
+            output.textContent += JSON.stringify(msg, null, 2) + '\n\n';
+        }
+
+        log('Initializing Convex client...');
+        const convex = new ConvexHttpClient(CONVEX_URL);
+        log('Convex client created');
+
+        document.getElementById('testBtn').addEventListener('click', async () => {
+            try {
+                log('Creating test broker...');
+                const result = await convex.mutation("brokers:createBroker", {
+                    name: "Test from HTML",
+                    broker: "mqtt.meshtastic.org",
+                    port: 1883,
+                    username: "meshdev",
+                    password: "large4cats",
+                    topic: "msh/US/2/#",
+                    enabled: true
+                });
+                log('Success! Result: ' + result);
+            } catch (error) {
+                log('Error: ' + error.message);
+                console.error(error);
+            }
+        });
+
+        document.getElementById('listBtn').addEventListener('click', async () => {
+            try {
+                log('Listing brokers...');
+                const result = await convex.query("brokers:listBrokers");
+                log('Brokers: ');
+                log(result);
+            } catch (error) {
+                log('Error: ' + error.message);
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>
