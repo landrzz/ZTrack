@@ -14,6 +14,7 @@ export const createBroker = mutation({
     topic: v.string(),
     nodeIds: v.optional(v.array(v.string())),
     enabled: v.optional(v.boolean()),
+    userId: v.optional(v.string()), // FUTURE: For multi-user support
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -27,6 +28,7 @@ export const createBroker = mutation({
       topic: args.topic,
       nodeIds: args.nodeIds,
       enabled: args.enabled ?? true,
+      userId: args.userId, // Store userId for future multi-user filtering
       createdAt: now,
       updatedAt: now,
     });
@@ -47,6 +49,7 @@ export const updateBroker = mutation({
     topic: v.optional(v.string()),
     nodeIds: v.optional(v.array(v.string())),
     enabled: v.optional(v.boolean()),
+    userId: v.optional(v.string()), // FUTURE: For multi-user support
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
@@ -117,5 +120,19 @@ export const getBrokerWithPassword = query({
   args: { id: v.id("brokerConfigs") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
+  },
+});
+
+/**
+ * Get broker configurations for a specific user
+ * FUTURE: For multi-user support
+ */
+export const getBrokersByUser = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("brokerConfigs")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
   },
 });

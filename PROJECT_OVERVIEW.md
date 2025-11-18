@@ -36,8 +36,8 @@ A real-time GPS tracking system that uses Meshtastic LoRa devices to track pets/
 │  URL: https://utmost-porcupine-898.convex.cloud                 │
 │                                                                   │
 │  Tables:                                                          │
-│  • positions - GPS coordinates with history                      │
-│  • brokerConfigs - MQTT connection settings                      │
+│  • positions - GPS coordinates with broker tracking              │
+│  • brokerConfigs - MQTT connection settings (multi-user ready)   │
 │                                                                   │
 │  Functions:                                                       │
 │  • positions.logPosition() - Store new coordinates               │
@@ -137,6 +137,7 @@ ZTrack/
      longitude: -7.925523,
      altitude: 113,
      timestamp: 1700234567000,
+     brokerId: "j972sa510wesh9pda6pm84g5wd7vnj8j", // Links to brokerConfig
      rawPayload: {...}
    }
    ```
@@ -151,7 +152,62 @@ ZTrack/
 
 ---
 
-## 🔑 Key Components
+## � Data Relationships
+
+### Position → Broker Tracking
+
+Every position record includes a `brokerId` that links it to the broker configuration that captured it:
+
+```typescript
+// Position record
+{
+  deviceId: "!9e75c710",
+  latitude: 35.205280,
+  longitude: -79.525229,
+  brokerId: "j972sa510wesh9pda6pm84g5wd7vnj8j" // References brokerConfigs._id
+}
+
+// Broker config
+{
+  _id: "j972sa510wesh9pda6pm84g5wd7vnj8j",
+  name: "Landers",
+  broker: "mqtt.meshtastic.org",
+  userId: null // FUTURE: Will link to user account
+}
+```
+
+**Why This Matters:**
+- **Multi-broker scenarios**: Track which broker captured each position
+- **Debugging**: Identify if specific brokers have issues
+- **Analytics**: Compare performance across different MQTT brokers
+- **Data isolation**: Future multi-user support - users only see their broker's data
+
+### Broker → User (Future Multi-User)
+
+Broker configs include an optional `userId` field for future multi-user support:
+
+```typescript
+// Single-user mode (current)
+{
+  name: "Landers",
+  userId: null // No user isolation yet
+}
+
+// Multi-user mode (future)
+{
+  name: "Landers",
+  userId: "user_abc123" // Only this user can see/manage this broker
+}
+```
+
+**Queries Available:**
+- `positions.getPositionsByBroker(brokerId)` - All devices on a broker
+- `positions.getPositionsByBrokerAndDevice(brokerId, deviceId)` - Specific device on specific broker
+- `brokers.getBrokersByUser(userId)` - All brokers owned by a user (future)
+
+---
+
+## � Key Components
 
 ### 1. Sync Service (`sync_service/`)
 
@@ -189,11 +245,14 @@ npm run admin
 - `brokerConfigs` - MQTT connection settings
 
 **API Functions:**
-- `positions.logPosition(...)` - Store coordinates
+- `positions.logPosition(...)` - Store coordinates (requires brokerId)
 - `positions.getLatestPosition(deviceId)` - Current location
 - `positions.getHistory(deviceId, limit)` - Historical trail
-- `brokers.createBroker(...)` - Add MQTT connection
+- `positions.getPositionsByBroker(brokerId)` - All positions from a broker
+- `positions.getPositionsByBrokerAndDevice(brokerId, deviceId)` - Precise tracking
+- `brokers.createBroker(...)` - Add MQTT connection (supports userId)
 - `brokers.listBrokers()` - Get all configurations
+- `brokers.getBrokersByUser(userId)` - Get user's brokers (multi-user)
 - `brokers.updateBroker(...)` - Modify settings
 - `brokers.deleteBroker(...)` - Remove connection
 
@@ -562,7 +621,10 @@ Run `npm run admin` and open http://localhost:3001 to see:
 - ✅ Dual format support: JSON and Protobuf messages
 - ✅ Smart deduplication (distance + time based: 2m + 1min)
 - ✅ Correct Meshtastic payload parsing
-- ✅ Convex database schema with indexing
+- ✅ Convex database schema with proper relationships
+  - ✅ Position → Broker tracking (brokerId required)
+  - ✅ Broker → User support (userId optional, for future)
+  - ✅ Indexed queries for broker-specific lookups
 - ✅ Auto-fill for Meshtastic credentials
 - ✅ Graceful error handling for mixed message formats
 - ✅ Node ID filtering

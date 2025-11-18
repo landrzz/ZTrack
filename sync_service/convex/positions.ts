@@ -14,6 +14,7 @@ export const logPosition = mutation({
     batteryLevel: v.optional(v.number()),
     timestamp: v.number(),
     rawPayload: v.optional(v.any()),
+    brokerId: v.optional(v.id("brokerConfigs")), // Optional for backwards compatibility, but should always be provided
   },
   handler: async (ctx, args) => {
     // Validate coordinates
@@ -22,6 +23,14 @@ export const logPosition = mutation({
     }
     if (args.longitude < -180 || args.longitude > 180) {
       throw new Error(`Invalid longitude: ${args.longitude}`);
+    }
+
+    // Verify broker exists if provided
+    if (args.brokerId) {
+      const broker = await ctx.db.get(args.brokerId);
+      if (!broker) {
+        throw new Error(`Broker config not found: ${args.brokerId}`);
+      }
     }
 
     // Insert the position record
@@ -34,6 +43,7 @@ export const logPosition = mutation({
       batteryLevel: args.batteryLevel,
       timestamp: args.timestamp,
       rawPayload: args.rawPayload || {},
+      brokerId: args.brokerId,
     });
   },
 });
@@ -64,6 +74,45 @@ export const getHistory = query({
     return await ctx.db
       .query("positions")
       .withIndex("by_device_time", (q) => q.eq("deviceId", args.deviceId))
+      .order("desc")
+      .take(args.limit ?? 100);
+  },
+});
+
+/**
+ * Get all positions for a specific broker config.
+ * Useful for viewing all devices tracked by a particular broker.
+ */
+export const getPositionsByBroker = query({
+  args: {
+    brokerId: v.id("brokerConfigs"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("positions")
+      .withIndex("by_broker", (q) => q.eq("brokerId", args.brokerId))
+      .order("desc")
+      .take(args.limit ?? 100);
+  },
+});
+
+/**
+ * Get positions for a specific device on a specific broker.
+ * Most precise query - useful for multi-broker setups tracking the same device.
+ */
+export const getPositionsByBrokerAndDevice = query({
+  args: {
+    brokerId: v.id("brokerConfigs"),
+    deviceId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("positions")
+      .withIndex("by_broker_device", (q) => 
+        q.eq("brokerId", args.brokerId).eq("deviceId", args.deviceId)
+      )
       .order("desc")
       .take(args.limit ?? 100);
   },

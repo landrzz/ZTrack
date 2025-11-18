@@ -227,7 +227,7 @@ function connectToBroker(config: any) {
         `📍 [${config.name}] Position: ${parsed.deviceId} @ (${parsed.latitude.toFixed(6)}, ${parsed.longitude.toFixed(6)})`
       );
 
-      // Send to Convex
+      // Send to Convex with broker ID to track which broker captured this position
       await convex.mutation(api.positions.logPosition, {
         deviceId: parsed.deviceId,
         latitude: parsed.latitude,
@@ -236,6 +236,7 @@ function connectToBroker(config: any) {
         accuracy: parsed.accuracy,
         timestamp: parsed.timestamp,
         rawPayload: parsed.rawPayload,
+        brokerId: brokerId, // Track which broker config captured this position
       });
 
       // Update last known position
