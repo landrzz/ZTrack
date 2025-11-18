@@ -26,11 +26,16 @@ export interface TrackedUnit {
   enabled: boolean;
 }
 
+export type HistoryMode = 'positions' | 'time';
+
 export interface AppSettings {
   trailLength: number;
   mapStyle: 'standard' | 'satellite' | 'hybrid';
   showTrail: boolean;
   autoCenter: boolean;
+  historyMode: HistoryMode;
+  historyPositionCount: number; // Number of positions (10-500)
+  historyTimeMinutes: number; // Time in minutes (5-1440 = 24 hours)
 }
 
 interface TrackerState {
@@ -58,6 +63,9 @@ export const useTrackerStore = create<TrackerState>()(
         mapStyle: 'standard',
         showTrail: true,
         autoCenter: true,
+        historyMode: 'positions',
+        historyPositionCount: 100,
+        historyTimeMinutes: 60,
       },
       hasCompletedOnboarding: false,
       

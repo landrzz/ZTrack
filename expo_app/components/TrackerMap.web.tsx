@@ -29,11 +29,23 @@ export default function TrackerMap() {
     deviceId ? { deviceId } : 'skip'
   );
   
-  // Fetch historical trail
-  const positionsData = useQuery(
+  // Fetch historical trail based on mode
+  const positionsByCount = useQuery(
     api.positions.getHistory,
-    deviceId ? { deviceId, limit: settings.trailLength || 100 } : 'skip'
+    deviceId && settings?.historyMode === 'positions' 
+      ? { deviceId, limit: settings.historyPositionCount || 100 } 
+      : 'skip'
   );
+  
+  const positionsByTime = useQuery(
+    api.positions.getHistoryByTime,
+    deviceId && settings?.historyMode === 'time'
+      ? { deviceId, minutesAgo: settings.historyTimeMinutes || 60 }
+      : 'skip'
+  );
+  
+  // Use the appropriate data source based on mode
+  const positionsData = settings?.historyMode === 'time' ? positionsByTime : positionsByCount;
   
   // Convert Convex positions to the format expected by Google Maps
   const allPositions = positionsData?.map(p => ({

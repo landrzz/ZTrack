@@ -10,11 +10,16 @@ export function formatDistance(meters: number): string {
 
 /**
  * Format timestamp to a human-readable string in local time
+ * Handles both seconds and milliseconds timestamps
+ * Shows relative time (e.g., "5 mins ago")
  */
 export function formatTimestamp(timestamp: number): string {
-  const date = new Date(timestamp);
+  // Convert to milliseconds if timestamp is in seconds (< year 2100 in seconds)
+  const timestampMs = timestamp < 10000000000 ? timestamp * 1000 : timestamp;
+  
+  const date = new Date(timestampMs);
   const now = Date.now();
-  const diff = now - timestamp;
+  const diff = now - timestampMs;
   
   // Less than 1 minute
   if (diff < 60000) {
@@ -39,6 +44,28 @@ export function formatTimestamp(timestamp: number): string {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
+  });
+}
+
+/**
+ * Format timestamp to absolute time in local timezone
+ * Handles both seconds and milliseconds timestamps
+ * Always shows the actual date/time (e.g., "Nov 18, 2025 at 2:12 PM")
+ */
+export function formatAbsoluteTimestamp(timestamp: number): string {
+  // Convert to milliseconds if timestamp is in seconds (< year 2100 in seconds)
+  const timestampMs = timestamp < 10000000000 ? timestamp * 1000 : timestamp;
+  
+  const date = new Date(timestampMs);
+  
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
     hour12: true,
   });
 }

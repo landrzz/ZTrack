@@ -1,13 +1,14 @@
-import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { useTrackerStore } from '@/store/useTrackerStore';
-import { formatDistance, formatTimestamp } from '@/utils/format';
+import { formatDistance, formatTimestamp, formatAbsoluteTimestamp } from '@/utils/format';
 import { MapPin, Clock, Activity, Navigation } from 'lucide-react-native';
 import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
 
 export default function InfoPanel() {
   const { units } = useTrackerStore();
+  const [showAbsoluteTime, setShowAbsoluteTime] = useState(false);
   
   // Get the first enabled unit
   const enabledUnit = units.find(u => u.enabled);
@@ -41,13 +42,22 @@ export default function InfoPanel() {
       
       {lastPosition ? (
         <View style={styles.infoGrid}>
-          <View style={styles.infoItem}>
+          <TouchableOpacity 
+            style={styles.infoItem}
+            onPress={() => setShowAbsoluteTime(!showAbsoluteTime)}
+            activeOpacity={0.7}
+          >
             <Clock size={16} color="#6b7280" />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Last Update</Text>
-              <Text style={styles.infoValue}>{formatTimestamp(lastPosition.timestamp)}</Text>
+              <Text style={styles.infoValue}>
+                {showAbsoluteTime 
+                  ? formatAbsoluteTimestamp(lastPosition.timestamp)
+                  : formatTimestamp(lastPosition.timestamp)
+                }
+              </Text>
             </View>
-          </View>
+          </TouchableOpacity>
           
           <View style={styles.infoItem}>
             <Navigation size={16} color="#6b7280" />

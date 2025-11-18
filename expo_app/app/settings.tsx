@@ -22,12 +22,27 @@ export default function SettingsScreen() {
   const [mapStyle, setMapStyle] = useState<'standard' | 'satellite' | 'hybrid'>(settings.mapStyle);
   const [showTrail, setShowTrail] = useState(settings.showTrail);
   const [autoCenter, setAutoCenter] = useState(settings.autoCenter);
+  const [historyMode, setHistoryMode] = useState<'positions' | 'time'>(settings.historyMode || 'positions');
+  const [historyPositionCount, setHistoryPositionCount] = useState((settings.historyPositionCount || 100).toString());
+  const [historyTimeMinutes, setHistoryTimeMinutes] = useState((settings.historyTimeMinutes || 60).toString());
   
   const handleSave = () => {
     const trailNum = parseInt(trailLength);
+    const posCount = parseInt(historyPositionCount);
+    const timeMin = parseInt(historyTimeMinutes);
     
     if (isNaN(trailNum) || trailNum < 10 || trailNum > 1000) {
       Alert.alert('Invalid Trail Length', 'Please enter a trail length between 10 and 1000');
+      return;
+    }
+    
+    if (isNaN(posCount) || posCount < 10 || posCount > 500) {
+      Alert.alert('Invalid Position Count', 'Please enter a position count between 10 and 500');
+      return;
+    }
+    
+    if (isNaN(timeMin) || timeMin < 5 || timeMin > 1440) {
+      Alert.alert('Invalid Time Range', 'Please enter a time range between 5 and 1440 minutes (24 hours)');
       return;
     }
     
@@ -36,6 +51,9 @@ export default function SettingsScreen() {
       mapStyle,
       showTrail,
       autoCenter,
+      historyMode,
+      historyPositionCount: posCount,
+      historyTimeMinutes: timeMin,
     });
     
     Alert.alert('Settings Saved', 'Your settings have been updated.', [
@@ -89,6 +107,74 @@ export default function SettingsScreen() {
             />
             <Text style={styles.hint}>Number of positions to keep in trail (10-1000)</Text>
           </View>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>History Mode</Text>
+            <View style={styles.buttonGroup}>
+              <TouchableOpacity
+                style={[
+                  styles.styleButton,
+                  historyMode === 'positions' && styles.styleButtonActive,
+                ]}
+                onPress={() => setHistoryMode('positions')}
+              >
+                <Text
+                  style={[
+                    styles.styleButtonText,
+                    historyMode === 'positions' && styles.styleButtonTextActive,
+                  ]}
+                >
+                  By Count
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.styleButton,
+                  historyMode === 'time' && styles.styleButtonActive,
+                ]}
+                onPress={() => setHistoryMode('time')}
+              >
+                <Text
+                  style={[
+                    styles.styleButtonText,
+                    historyMode === 'time' && styles.styleButtonTextActive,
+                  ]}
+                >
+                  By Time
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.hint}>Choose how to load position history</Text>
+          </View>
+          
+          {historyMode === 'positions' && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Position Count</Text>
+              <TextInput
+                style={styles.input}
+                value={historyPositionCount}
+                onChangeText={setHistoryPositionCount}
+                placeholder="100"
+                keyboardType="number-pad"
+              />
+              <Text style={styles.hint}>Load last N positions (10-500)</Text>
+            </View>
+          )}
+          
+          {historyMode === 'time' && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Time Range (minutes)</Text>
+              <TextInput
+                style={styles.input}
+                value={historyTimeMinutes}
+                onChangeText={setHistoryTimeMinutes}
+                placeholder="60"
+                keyboardType="number-pad"
+              />
+              <Text style={styles.hint}>Load positions from last N minutes (5-1440)</Text>
+            </View>
+          )}
           
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Map Style</Text>

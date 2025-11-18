@@ -63,7 +63,7 @@ export const getLatestPosition = query({
 });
 
 /**
- * Get position history.
+ * Get historical positions for a device (most recent first)
  */
 export const getHistory = query({
   args: {
@@ -76,6 +76,26 @@ export const getHistory = query({
       .withIndex("by_device_time", (q) => q.eq("deviceId", args.deviceId))
       .order("desc")
       .take(args.limit ?? 100);
+  },
+});
+
+/**
+ * Get historical positions for a device within a time range (most recent first)
+ */
+export const getHistoryByTime = query({
+  args: {
+    deviceId: v.string(),
+    minutesAgo: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const cutoffTime = Date.now() - (args.minutesAgo * 60 * 1000);
+    
+    return await ctx.db
+      .query("positions")
+      .withIndex("by_device_time", (q) => q.eq("deviceId", args.deviceId))
+      .filter((q) => q.gte(q.field("timestamp"), cutoffTime))
+      .order("desc")
+      .collect();
   },
 });
 
