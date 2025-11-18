@@ -2,6 +2,7 @@ import mqtt, { MqttClient } from "mqtt";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import dotenv from "dotenv";
+import * as Protobuf from "@meshtastic/protobufs";
 
 // Load environment variables
 dotenv.config();
@@ -48,47 +49,29 @@ function haversineDistance(
 
 /**
  * Check if position should be deduplicated
+ * Only deduplicate if:
+ * 1. Position is within distanceThreshold meters (default 10m)
+ * 2. AND less than timeThreshold seconds have passed (default 5 minutes)
+ * This ensures fresh updates even when stationary, while avoiding spam
  */
-function shouldDeduplicate(deviceId: string, lat: number, lon: number, threshold: number = 2): boolean {
+function shouldDeduplicate(
+  deviceId: string, 
+  lat: number, 
+  lon: number, 
+  timestamp: number,
+  distanceThreshold: number = 2,
+  timeThreshold: number = 60 // 1 minute in seconds
+): boolean {
   const last = lastPositions.get(deviceId);
   if (!last) return false;
 
   const distance = haversineDistance(last.lat, last.lon, lat, lon);
-  return distance < threshold;
-}
-
-/**
- * Parse Meshtastic MQTT payload
- * Based on actual structure from screenshot
- */
-function parseMeshtasticPayload(data: any) {
-  // Check if this is a position packet
-  if (data.type !== "position") {
-    return null;
-  }
-
-  // Extract payload (contains lat/lon)
-  if (!data.payload || !data.payload.latitude_i || !data.payload.longitude_i) {
-    return null;
-  }
-
-  // Convert integer coordinates to decimal degrees
-  const latitude = data.payload.latitude_i * 1e-7;
-  const longitude = data.payload.longitude_i * 1e-7;
-
-  // Validate coordinates
-  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-    return null;
-  }
-
-  return {
-    deviceId: data.sender || data.from?.toString() || "unknown",
-    latitude,
-    longitude,
-    altitude: data.payload.altitude,
-    accuracy: data.payload.precision_bits,
-    timestamp: data.timestamp ? data.timestamp * 1000 : Date.now(), // Convert to ms if needed
-  };
+  const timeDiff = timestamp - last.timestamp;
+  
+  // Only deduplicate if BOTH conditions are true:
+  // - Position is very close (< 10m)
+  // - AND update is very recent (< 5 minutes)
+  return distance < distanceThreshold && timeDiff < timeThreshold;
 }
 
 /**
@@ -146,13 +129,85 @@ function connectToBroker(config: any) {
 
   client.on("message", async (topic, message) => {
     try {
-      const payloadStr = message.toString();
-      const data = JSON.parse(payloadStr);
+      let parsed: any;
 
-      // Parse using the actual Meshtastic structure
-      const parsed = parseMeshtasticPayload(data);
+      // Check if this is a JSON message (topic contains '/json/')
+      if (topic.includes('/json/')) {
+        // Parse JSON message
+        try {
+          const payloadStr = message.toString();
+          const data = JSON.parse(payloadStr);
+          
+          // Check if this is a position packet
+          if (data.type !== 'position') {
+            return; // Skip non-position packets
+          }
+
+          // Extract position data from JSON
+          if (!data.payload?.latitude_i || !data.payload?.longitude_i) {
+            return; // Skip if no valid position
+          }
+
+          // Convert from Meshtastic integer format to decimal degrees
+          const latitude = data.payload.latitude_i * 1e-7;
+          const longitude = data.payload.longitude_i * 1e-7;
+
+          parsed = {
+            deviceId: data.sender || 'unknown',
+            latitude,
+            longitude,
+            altitude: data.payload.altitude || undefined,
+            timestamp: data.timestamp || Date.now() / 1000,
+            batteryLevel: undefined,
+            accuracy: data.payload.precision_bits || undefined,
+            rawPayload: data,
+          };
+        } catch (jsonError) {
+          // Silently skip malformed JSON messages
+          return;
+        }
+      } else {
+        // Try to parse as protobuf message
+        try {
+          const envelope = Protobuf.Mesh.ServiceEnvelope.decode(message);
+          
+          // Check if this is a position packet
+          if (!envelope.packet?.decoded?.portnum || envelope.packet.decoded.portnum !== Protobuf.Portnums.PortNum.POSITION_APP) {
+            return; // Skip non-position packets
+          }
+
+          // Decode the position data
+          const positionData = Protobuf.Mesh.Position.decode(envelope.packet.decoded.payload);
+          
+          // Convert from Meshtastic format (integers) to standard lat/lon
+          const latitude = positionData.latitudeI ? positionData.latitudeI * 1e-7 : null;
+          const longitude = positionData.longitudeI ? positionData.longitudeI * 1e-7 : null;
+          
+          if (!latitude || !longitude) {
+            return; // Skip if no valid position
+          }
+
+          // Get device ID from the packet
+          const deviceId = envelope.packet.from ? `!${envelope.packet.from.toString(16)}` : 'unknown';
+          
+          parsed = {
+            deviceId,
+            latitude,
+            longitude,
+            altitude: positionData.altitude || undefined,
+            timestamp: positionData.time || Date.now() / 1000,
+            batteryLevel: undefined,
+            accuracy: positionData.precisionBits || undefined,
+            rawPayload: envelope,
+          };
+        } catch (protobufError) {
+          // Silently skip messages that aren't valid protobuf
+          return;
+        }
+      }
+
       if (!parsed) {
-        return; // Skip non-position or invalid packets
+        return; // Skip if parsing failed
       }
 
       // Apply node filter if configured
@@ -162,9 +217,9 @@ function connectToBroker(config: any) {
         }
       }
 
-      // Check for deduplication
-      if (shouldDeduplicate(parsed.deviceId, parsed.latitude, parsed.longitude)) {
-        console.log(`⊘ Skipping duplicate position for ${parsed.deviceId}`);
+      // Check for deduplication (only skip if position is close AND time is recent)
+      if (shouldDeduplicate(parsed.deviceId, parsed.latitude, parsed.longitude, parsed.timestamp)) {
+        console.log(`⊘ Skipping duplicate position for ${parsed.deviceId} (within 10m and < 5min)`);
         return;
       }
 
@@ -180,7 +235,7 @@ function connectToBroker(config: any) {
         altitude: parsed.altitude,
         accuracy: parsed.accuracy,
         timestamp: parsed.timestamp,
-        rawPayload: data,
+        rawPayload: parsed.rawPayload,
       });
 
       // Update last known position

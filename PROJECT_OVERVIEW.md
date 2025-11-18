@@ -22,12 +22,12 @@ A real-time GPS tracking system that uses Meshtastic LoRa devices to track pets/
 │  Location: sync_service/                                         │
 │                                                                   │
 │  • Subscribes to MQTT brokers (multi-broker support)             │
-│  • Parses Meshtastic JSON payloads                               │
+│  • Parses JSON & Protobuf Meshtastic payloads                    │
 │  • Converts coordinates (latitude_i → decimal degrees)           │
-│  • Deduplicates positions                                        │
+│  • Smart deduplication (distance + time based)                   │
 │  • Pushes to Convex database                                     │
 │                                                                   │
-│  Managed via: Admin Web UI (admin/index.html)                    │
+│  Managed via: Admin Web UI (npm run admin)                       │
 └──────────────────────────────┬──────────────────────────────────┘
                                │ HTTPS
                                ↓
@@ -122,9 +122,10 @@ ZTrack/
    ```
 
 3. **Sync Service** receives MQTT message:
-   - Parses JSON payload
+   - Detects format (JSON if topic contains `/json/`, else Protobuf)
+   - Parses payload accordingly
    - Converts: `latitude_i * 1e-7` → `35.205280`
-   - Checks deduplication (< 2 meters)
+   - Checks smart deduplication (< 2m AND < 1 minute)
    - Calls Convex mutation
 
 4. **Convex** stores in `positions` table:
@@ -159,11 +160,12 @@ ZTrack/
 **Key Features:**
 - ✅ Multi-broker support (connect to multiple MQTT servers)
 - ✅ Hot-reload configuration (no restart needed)
-- ✅ Web UI for broker management
-- ✅ Parses actual Meshtastic payload structure
+- ✅ Web UI for broker management (`npm run admin`)
+- ✅ Dual format support: JSON and Protobuf messages
+- ✅ Smart deduplication (distance + time based)
 - ✅ Node ID filtering
-- ✅ Position deduplication
 - ✅ Auto-fills credentials for mqtt.meshtastic.org
+- ✅ Graceful error handling for mixed message formats
 
 **Running:**
 ```bash
@@ -173,7 +175,8 @@ npm run dev
 
 **Managing Brokers:**
 ```bash
-open admin/index.html
+npm run admin
+# Opens http://localhost:3001
 # Fill form → Add broker → Service auto-syncs
 ```
 
@@ -430,8 +433,8 @@ npx expo start
 ### Making Changes
 
 **To add/modify MQTT brokers:**
-1. Open `sync_service/admin/index.html`
-2. Add/edit broker configuration
+1. Run `npm run admin` (opens http://localhost:3001)
+2. Add/edit broker configuration in web UI
 3. Service auto-syncs within 30 seconds
 
 **To update database schema:**
@@ -467,10 +470,11 @@ npm run dev
 ```
 
 **Admin UI:**
-Open `sync_service/admin/index.html` to see:
+Run `npm run admin` and open http://localhost:3001 to see:
 - Active broker connections
 - Enabled/disabled status
 - Configuration details
+- Add/edit/delete brokers
 
 ### Common Issues
 
@@ -498,23 +502,24 @@ Open `sync_service/admin/index.html` to see:
 
 ### For You (Right Now)
 
-1. ✅ **Test Admin UI:** Should now work with fixed API calls
+1. ✅ **COMPLETED - Admin UI:** Working perfectly with Convex integration
    ```bash
-   open sync_service/admin/index.html
-   # Add your broker configuration
+   npm run admin  # Opens http://localhost:3001
+   # Broker management fully functional
    ```
 
-2. ✅ **Start Sync Service:**
+2. ✅ **COMPLETED - Sync Service:** Operational with dual format support
    ```bash
    cd sync_service
    npm run dev
-   # Should connect and start logging positions
+   # Successfully logging positions from !9e75c710
+   # Supports both JSON and Protobuf messages
    ```
 
-3. ✅ **Verify in Convex Dashboard:**
-   - Visit https://dashboard.convex.dev/d/utmost-porcupine-898
-   - Check `brokerConfigs` table has your entry
-   - Wait for positions to appear in `positions` table
+3. ✅ **COMPLETED - Convex Integration:** Data flowing correctly
+   - Broker configs stored in `brokerConfigs` table
+   - Positions being logged to `positions` table
+   - Smart deduplication active (2m + 1min threshold)
 
 ### For Next Coding Session
 
@@ -551,17 +556,21 @@ Open `sync_service/admin/index.html` to see:
 
 ## 🎉 What's Been Accomplished
 
-### ✅ Completed
-- Multi-broker support with hot-reload
-- Web-based admin UI for broker management
-- Correct Meshtastic payload parsing
-- Convex database schema with indexing
-- Position deduplication logic
-- Auto-fill for Meshtastic credentials
-- Comprehensive documentation
+### ✅ Completed (Sync Service - Fully Operational)
+- ✅ Multi-broker support with hot-reload (30s polling)
+- ✅ Web-based admin UI with Convex integration (`npm run admin`)
+- ✅ Dual format support: JSON and Protobuf messages
+- ✅ Smart deduplication (distance + time based: 2m + 1min)
+- ✅ Correct Meshtastic payload parsing
+- ✅ Convex database schema with indexing
+- ✅ Auto-fill for Meshtastic credentials
+- ✅ Graceful error handling for mixed message formats
+- ✅ Node ID filtering
+- ✅ Comprehensive documentation
+- ✅ Real-time position logging from device !9e75c710
 
 ### 🔄 In Progress
-- Expo app Convex integration
+- Expo app Convex integration (next priority)
 
 ### 📋 Planned
 - User authentication
@@ -573,5 +582,6 @@ Open `sync_service/admin/index.html` to see:
 ---
 
 **Last Updated:** November 18, 2025  
-**Status:** Sync service operational, Expo app needs updates  
-**Next Agent:** Focus on Expo app Convex integration (Priority 1-4 above)
+**Status:** ✅ Sync service fully operational and logging positions | ⏳ Expo app needs Convex integration  
+**Current Device:** !9e75c710 (Landers) - Actively tracking  
+**Next Session:** Focus on Expo app Convex integration (Priority 1-4 above)
