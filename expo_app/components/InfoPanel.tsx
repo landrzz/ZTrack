@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { useTrackerStore } from '@/store/useTrackerStore';
 import { formatDistance, formatTimestamp, formatAbsoluteTimestamp } from '@/utils/format';
-import { MapPin, Clock, Activity, Navigation } from 'lucide-react-native';
+import { MapPin, Clock, Activity, Navigation, List } from 'lucide-react-native';
 import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
+import { useRouter } from 'expo-router';
 
 export default function InfoPanel() {
   const { units } = useTrackerStore();
+  const router = useRouter();
   const [showAbsoluteTime, setShowAbsoluteTime] = useState(false);
   
   // Get the first enabled unit
@@ -78,7 +80,16 @@ export default function InfoPanel() {
           )}
           
           <View style={styles.coordinates}>
-            <Text style={styles.coordLabel}>Coordinates</Text>
+            <View style={styles.coordHeader}>
+              <Text style={styles.coordLabel}>Coordinates</Text>
+              <TouchableOpacity 
+                style={styles.historyButton}
+                onPress={() => router.push('/position-history')}
+                activeOpacity={0.7}
+              >
+                <List size={16} color="#3b82f6" />
+              </TouchableOpacity>
+            </View>
             <Text style={styles.coordValue}>
               {lastPosition.latitude.toFixed(6)}, {lastPosition.longitude.toFixed(6)}
             </Text>
@@ -182,11 +193,21 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
   },
+  coordHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   coordLabel: {
     fontSize: 12,
     color: '#6b7280',
     fontWeight: '500',
-    marginBottom: 4,
+  },
+  historyButton: {
+    padding: 4,
+    borderRadius: 6,
+    backgroundColor: '#eff6ff',
   },
   coordValue: {
     fontSize: 13,

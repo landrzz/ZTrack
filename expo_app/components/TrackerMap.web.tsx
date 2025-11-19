@@ -3,6 +3,7 @@ import { StyleSheet, View, Text } from 'react-native';
 import { useTrackerStore } from '@/store/useTrackerStore';
 import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
+import { formatTimestamp } from '@/utils/format';
 
 declare global {
   interface Window {
@@ -105,7 +106,7 @@ export default function TrackerMap() {
         markerRef.current = new window.google.maps.Marker({
           position,
           map: googleMapRef.current,
-          title: 'Tracker',
+          title: enabledUnit?.name || 'Tracker',
         });
       }
       

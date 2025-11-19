@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTrackerStore } from '@/store/useTrackerStore';
-import { ChevronLeft, Save, Map as MapIcon, Server, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, Save, Map as MapIcon, Server, ChevronRight, Dog } from 'lucide-react-native';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -31,13 +31,13 @@ export default function SettingsScreen() {
     const posCount = parseInt(historyPositionCount);
     const timeMin = parseInt(historyTimeMinutes);
     
-    if (isNaN(trailNum) || trailNum < 10 || trailNum > 1000) {
-      Alert.alert('Invalid Trail Length', 'Please enter a trail length between 10 and 1000');
+    if (isNaN(trailNum) || trailNum < 5 || trailNum > 50) {
+      Alert.alert('Invalid Trail Length', 'Please enter a trail length between 5 and 50');
       return;
     }
     
-    if (isNaN(posCount) || posCount < 10 || posCount > 500) {
-      Alert.alert('Invalid Position Count', 'Please enter a position count between 10 and 500');
+    if (isNaN(posCount) || posCount < 5 || posCount > 50) {
+      Alert.alert('Invalid Position Count', 'Please enter a position count between 5 and 50');
       return;
     }
     
@@ -91,6 +91,20 @@ export default function SettingsScreen() {
             </View>
             <ChevronRight size={20} color="#9ca3af" />
           </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.navigationButton}
+            onPress={() => router.push('/trackers')}
+          >
+            <View style={styles.navigationButtonContent}>
+              <Dog size={20} color="#3b82f6" />
+              <View style={styles.navigationButtonText}>
+                <Text style={styles.navigationButtonTitle}>Trackers</Text>
+                <Text style={styles.navigationButtonSubtitle}>Manage tracker configurations</Text>
+              </View>
+            </View>
+            <ChevronRight size={20} color="#9ca3af" />
+          </TouchableOpacity>
         </View>
         
         <View style={styles.section}>
@@ -105,7 +119,7 @@ export default function SettingsScreen() {
               placeholder="100"
               keyboardType="number-pad"
             />
-            <Text style={styles.hint}>Number of positions to keep in trail (10-1000)</Text>
+            <Text style={styles.hint}>Number of positions to keep in trail (5-50)</Text>
           </View>
           
           <View style={styles.inputGroup}>
@@ -158,7 +172,7 @@ export default function SettingsScreen() {
                 placeholder="100"
                 keyboardType="number-pad"
               />
-              <Text style={styles.hint}>Load last N positions (10-500)</Text>
+              <Text style={styles.hint}>Load last N positions (5-50)</Text>
             </View>
           )}
           

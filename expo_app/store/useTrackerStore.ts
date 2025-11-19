@@ -59,12 +59,12 @@ export const useTrackerStore = create<TrackerState>()(
     (set) => ({
       units: [],
       settings: {
-        trailLength: 100,
+        trailLength: 50,
         mapStyle: 'standard',
         showTrail: true,
         autoCenter: true,
         historyMode: 'positions',
-        historyPositionCount: 100,
+        historyPositionCount: 50,
         historyTimeMinutes: 60,
       },
       hasCompletedOnboarding: false,

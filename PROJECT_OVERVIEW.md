@@ -51,12 +51,13 @@ A real-time GPS tracking system that uses Meshtastic LoRa devices to track pets/
 │                  EXPO APP (React Native)                         │
 │  Location: expo_app/                                             │
 │                                                                   │
-│  • Real-time map with tracker position                           │
-│  • Historical trail visualization                                │
-│  • Works on iOS & Android                                        │
-│  • Web version available                                         │
+│  • Real-time map with tracker position (Convex subscriptions)    │
+│  • Configurable historical trail (by count or time)              │
+│  • Broker management UI (full CRUD)                              │
+│  • Toggle timestamp display (relative/absolute)                  │
+│  • Works on iOS, Android & Web                                   │
 │                                                                   │
-│  Status: ⚠️ NEEDS UPDATES (see Next Steps)                       │
+│  Status: ✅ FULLY INTEGRATED with Convex                         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -68,17 +69,25 @@ A real-time GPS tracking system that uses Meshtastic LoRa devices to track pets/
 ZTrack/
 ├── expo_app/                    # Mobile/Web App (Expo + React Native)
 │   ├── app/
-│   │   ├── index.tsx            # Main screen (map view)
-│   │   ├── index.web.tsx        # Web-specific entry
-│   │   └── _layout.tsx          # Navigation layout
+│   │   ├── index.tsx            # ✅ Main screen (full-screen map)
+│   │   ├── settings.tsx         # ✅ Settings with history config
+│   │   ├── brokers.tsx          # ✅ Broker management UI
+│   │   ├── onboarding.tsx       # ✅ Simplified tracker setup
+│   │   └── _layout.tsx          # ✅ ConvexProvider + navigation
 │   ├── components/
-│   │   ├── TrackerMap.tsx       # ⚠️ NEEDS UPDATE - Map component
-│   │   ├── InfoPanel.tsx        # Device info display
-│   │   └── MapControls.tsx      # Map interaction controls
-│   ├── hooks/
-│   │   ├── useMQTTConnection.ts      # ⚠️ DEPRECATED - Remove
-│   │   └── useMQTTConnection.web.ts  # ⚠️ DEPRECATED - Remove
-│   └── package.json
+│   │   ├── TrackerMap.tsx       # ✅ Convex queries (native)
+│   │   ├── TrackerMap.web.tsx   # ✅ Convex queries (web)
+│   │   ├── InfoPanel.tsx        # ✅ Tappable timestamp toggle
+│   │   └── MapControls.tsx      # ✅ Trail controls
+│   ├── convex/                  # ✅ Copied from sync_service
+│   │   ├── _generated/          # Auto-generated types
+│   │   ├── positions.ts         # Position queries
+│   │   └── brokers.ts           # Broker CRUD
+│   ├── store/
+│   │   └── useTrackerStore.ts   # ✅ App state (no MQTT)
+│   ├── utils/
+│   │   └── format.ts            # ✅ Timestamp formatting
+│   └── package.json             # ✅ Convex added, MQTT removed
 │
 ├── sync_service/                # Server-side MQTT → Convex Bridge
 │   ├── src/
@@ -247,7 +256,8 @@ npm run admin
 **API Functions:**
 - `positions.logPosition(...)` - Store coordinates (requires brokerId)
 - `positions.getLatestPosition(deviceId)` - Current location
-- `positions.getHistory(deviceId, limit)` - Historical trail
+- `positions.getHistory(deviceId, limit)` - Historical trail by count
+- `positions.getHistoryByTime(deviceId, minutesAgo)` - Historical trail by time
 - `positions.getPositionsByBroker(brokerId)` - All positions from a broker
 - `positions.getPositionsByBrokerAndDevice(brokerId, deviceId)` - Precise tracking
 - `brokers.createBroker(...)` - Add MQTT connection (supports userId)
@@ -255,6 +265,7 @@ npm run admin
 - `brokers.getBrokersByUser(userId)` - Get user's brokers (multi-user)
 - `brokers.updateBroker(...)` - Modify settings
 - `brokers.deleteBroker(...)` - Remove connection
+- `brokers.toggleBroker(id)` - Enable/disable broker
 
 **Deploying:**
 ```bash
@@ -267,177 +278,160 @@ npx convex deploy  # Production
 
 **Purpose:** Mobile/web interface for tracking
 
-**Current State:** ⚠️ **NEEDS MAJOR UPDATES**
+**Current State:** ✅ **FULLY INTEGRATED WITH CONVEX**
 
-**What Works:**
-- ✅ Map rendering
-- ✅ Basic UI components
-- ✅ Web and native builds
+**Features:**
+- ✅ Real-time position updates via Convex subscriptions
+- ✅ Full-screen map (iOS safe area removed)
+- ✅ Configurable history loading:
+  - By position count (10-500, default: 100)
+  - By time range (5-1440 minutes, default: 60)
+- ✅ Tappable timestamp toggle (relative ↔ absolute)
+- ✅ Broker management UI (create, edit, delete, toggle)
+- ✅ Trail visualization with toggle controls
+- ✅ Multi-unit support with enable/disable
+- ✅ Works on iOS, Android & Web
+- ✅ No direct MQTT connection (server-side only)
 
-**What Needs Updating:**
-- ❌ Remove MQTT client code (now server-side)
-- ❌ Add Convex client integration
-- ❌ Update position fetching to use Convex queries
-- ❌ Add real-time subscriptions
-- ❌ (Optional) Add broker configuration UI
+**Timestamp Handling:**
+- Meshtastic sends timestamps in Unix seconds
+- App auto-detects and converts to milliseconds
+- Displays in local timezone
+- Toggle: "5 mins ago" ↔ "Nov 18, 2025 at 2:12:04 PM"
 
 ---
 
-## 🚀 Next Steps - Expo App Integration
+## 🎨 Expo App Features
 
-### Priority 1: Remove Direct MQTT Connection
+### History Configuration
 
-**Files to Modify/Delete:**
-```
-expo_app/hooks/useMQTTConnection.ts        → DELETE
-expo_app/hooks/useMQTTConnection.web.ts    → DELETE
-expo_app/package.json                       → Remove MQTT dependencies
-```
+Users can configure how much position history to load:
 
-**Why:** The app no longer connects directly to MQTT. The sync service handles this.
+**Mode 1: By Position Count**
+- Load last N positions (10-500)
+- Fast and predictable
+- Default: 100 positions
 
-### Priority 2: Add Convex Client
+**Mode 2: By Time Range**
+- Load positions from last N minutes (5-1440)
+- Useful for "show me last hour" scenarios
+- Default: 60 minutes
 
-**Install Convex:**
+**Settings UI:**
+- Toggle between modes
+- Conditional inputs based on selection
+- Validation with reasonable limits
+- Persists across sessions
+
+### Timestamp Display
+
+**Relative Time (Default):**
+- "Just now" (< 1 minute)
+- "5 mins ago" (< 1 hour)
+- "2 hours ago" (< 24 hours)
+- "Nov 18 at 2:12 PM" (older)
+
+**Absolute Time (Tap to Toggle):**
+- "Nov 18, 2025 at 2:12:04 PM"
+- Full date with year and seconds
+- Always in local timezone
+
+**How It Works:**
+1. Meshtastic sends: `time: 1763493125` (Unix seconds)
+2. Convex stores: `1763493125` (as-is)
+3. App converts: `1763493125000` (milliseconds for JS Date)
+4. Displays: Formatted in local time
+
+### Broker Management
+
+Full CRUD interface matching sync_service admin UI:
+- ✅ Create new broker configs
+- ✅ Edit existing configs
+- ✅ Delete brokers
+- ✅ Toggle enabled/disabled
+- ✅ Real-time sync with sync_service
+
+### UI/UX Improvements
+
+**Home Screen:**
+- Full-screen map (no iOS safe area padding)
+- InfoPanel positioned 35px from bottom
+- Trail toggle with error handling
+- Stats card with live updates
+
+**Settings Screen:**
+- Single back button (no duplicates)
+- History mode configuration
+- Map style selection
+- Trail length control
+
+---
+
+## 🚀 Getting Started (Complete Setup)
+
+### Initial Setup
+
+**1. Clone and Install:**
 ```bash
-cd expo_app
-npm install convex
-npx convex dev
+git clone <repo-url>
+cd ZTrack
+
+# Install sync service
+cd sync_service
+npm install
+
+# Install expo app
+cd ../expo_app
+npm install
 ```
 
-**Create Convex Provider:**
-```typescript
-// expo_app/app/_layout.tsx
-import { ConvexProvider, ConvexReactClient } from "convex/react";
-
-const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!);
-
-export default function RootLayout() {
-  return (
-    <ConvexProvider client={convex}>
-      {/* existing layout */}
-    </ConvexProvider>
-  );
-}
-```
-
-**Add Environment Variable:**
+**2. Configure Environment:**
 ```bash
+# sync_service/.env
+CONVEX_URL=https://utmost-porcupine-898.convex.cloud
+
 # expo_app/.env
 EXPO_PUBLIC_CONVEX_URL=https://utmost-porcupine-898.convex.cloud
 ```
 
-### Priority 3: Update Map Component
-
-**Current Code (expo_app/components/TrackerMap.tsx):**
-```typescript
-// OLD - Uses MQTT hook
-const { lastPosition } = useMQTTConnection();
-```
-
-**New Code:**
-```typescript
-// NEW - Uses Convex subscription
-import { useQuery } from "convex/react";
-import { api } from "../convex/_generated/api";
-
-function TrackerMap({ deviceId }: { deviceId: string }) {
-  // Real-time position updates
-  const position = useQuery(api.positions.getLatestPosition, {
-    deviceId: deviceId
-  });
-
-  // Historical trail (last 100 points)
-  const trail = useQuery(api.positions.getHistory, {
-    deviceId: deviceId,
-    limit: 100
-  });
-
-  if (!position) {
-    return <Text>Loading position...</Text>;
-  }
-
-  return (
-    <MapView
-      initialRegion={{
-        latitude: position.latitude,
-        longitude: position.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }}
-    >
-      {/* Current position marker */}
-      <Marker
-        coordinate={{
-          latitude: position.latitude,
-          longitude: position.longitude,
-        }}
-        title={deviceId}
-      />
-
-      {/* Historical trail */}
-      {trail && (
-        <Polyline
-          coordinates={trail.map(p => ({
-            latitude: p.latitude,
-            longitude: p.longitude,
-          }))}
-          strokeColor="#667eea"
-          strokeWidth={3}
-        />
-      )}
-    </MapView>
-  );
-}
-```
-
-### Priority 4: Copy Convex Schema to Expo App
-
-The Expo app needs the Convex API types to call functions:
-
+**3. Initialize Convex:**
 ```bash
-# From sync_service
-cp -r convex expo_app/
+cd sync_service
+npx convex dev  # Generates schema and types
+```
+
+**4. Copy Convex to Expo App:**
+```bash
+# From project root
+cp -r sync_service/convex expo_app/
 
 # Then in expo_app
-npx convex dev
-# This generates expo_app/convex/_generated/
+cd expo_app
+npx convex dev  # Generates expo_app/convex/_generated/
 ```
 
-### Priority 5: (Optional) Add Broker Configuration UI
+**5. Start Services:**
+```bash
+# Terminal 1: Convex
+cd sync_service
+npx convex dev
 
-**For single-user:** You can keep using the admin web UI
+# Terminal 2: Sync Service
+cd sync_service
+npm run dev
 
-**For multi-user app:** Create a settings screen in the Expo app:
+# Terminal 3: Expo App
+cd expo_app
+npx expo start
+```
 
-```typescript
-// expo_app/app/settings.tsx
-import { useMutation } from "convex/react";
-import { api } from "../convex/_generated/api";
-
-function SettingsScreen() {
-  const createBroker = useMutation(api.brokers.createBroker);
-
-  const handleAddBroker = async (formData) => {
-    await createBroker({
-      name: formData.name,
-      broker: formData.broker,
-      port: parseInt(formData.port),
-      username: formData.username,
-      password: formData.password,
-      topic: formData.topic,
-      nodeIds: [formData.nodeId],
-      enabled: true,
-    });
-  };
-
-  return (
-    <View>
-      <Text>Configure Your MQTT Broker</Text>
-      {/* Form fields matching admin UI */}
-    </View>
-  );
-}
+**6. Configure Broker:**
+```bash
+# Open admin UI
+cd sync_service
+npm run admin
+# Navigate to http://localhost:3001
+# Add your MQTT broker configuration
 ```
 
 ---
@@ -580,21 +574,46 @@ Run `npm run admin` and open http://localhost:3001 to see:
    - Positions being logged to `positions` table
    - Smart deduplication active (2m + 1min threshold)
 
-### For Next Coding Session
+### Completed Features
 
-1. **Update Expo App** (following Priority steps above)
-   - Remove MQTT client code
-   - Add Convex integration
-   - Update map component to use Convex queries
+1. ✅ **Expo App Convex Integration**
+   - Removed all MQTT client code
+   - Added ConvexProvider and real-time queries
+   - Updated map components (native + web)
+   - Copied Convex schema and generated types
 
-2. **Test End-to-End Flow:**
+2. ✅ **End-to-End Flow Verified:**
    - Meshtastic device → MQTT → Sync Service → Convex → Expo App
-   - Verify real-time updates on mobile
+   - Real-time updates working on mobile and web
+   - Position history loading correctly
 
-3. **Polish UI:**
-   - Add loading states
-   - Handle offline scenarios
-   - Add settings screen for broker config (optional)
+3. ✅ **UI Polish:**
+   - Full-screen map experience
+   - Tappable timestamp toggle
+   - Configurable history loading
+   - Broker management UI
+   - Loading states and error handling
+   - Settings screen with validation
+
+### Future Enhancements
+
+1. **User Authentication:**
+   - Add Clerk or Auth0 integration
+   - Enable userId in broker configs
+   - Multi-user data isolation
+
+2. **Advanced Features:**
+   - Geofencing alerts
+   - Battery monitoring
+   - Historical data export
+   - Push notifications
+   - Offline mode support
+
+3. **Analytics:**
+   - Distance traveled reports
+   - Time spent in areas
+   - Movement patterns
+   - Battery usage trends
 
 ---
 
@@ -604,6 +623,10 @@ Run `npm run admin` and open http://localhost:3001 to see:
 - `sync_service/QUICKSTART.md` - Get started in 3 steps
 - `sync_service/SETUP.md` - Detailed setup guide
 - `sync_service/COMMANDS.md` - Command reference
+- `expo_app/MIGRATION_SUMMARY.md` - Convex migration details
+- `expo_app/UI_FIXES.md` - UI/UX improvements
+- `expo_app/TIMESTAMP_AND_HISTORY_FIXES.md` - Timestamp and history features
+- `expo_app/TIMESTAMP_TOGGLE_FEATURE.md` - Toggle functionality details
 
 **External Resources:**
 - [Convex Docs](https://docs.convex.dev)
@@ -615,7 +638,7 @@ Run `npm run admin` and open http://localhost:3001 to see:
 
 ## 🎉 What's Been Accomplished
 
-### ✅ Completed (Sync Service - Fully Operational)
+### ✅ Completed - Sync Service (Fully Operational)
 - ✅ Multi-broker support with hot-reload (30s polling)
 - ✅ Web-based admin UI with Convex integration (`npm run admin`)
 - ✅ Dual format support: JSON and Protobuf messages
@@ -630,20 +653,46 @@ Run `npm run admin` and open http://localhost:3001 to see:
 - ✅ Node ID filtering
 - ✅ Comprehensive documentation
 - ✅ Real-time position logging from device !9e75c710
+- ✅ Timestamps stored in Unix seconds (Meshtastic format)
 
-### 🔄 In Progress
-- Expo app Convex integration (next priority)
+### ✅ Completed - Expo App (Fully Integrated)
+- ✅ Removed all MQTT client code
+- ✅ ConvexProvider integration
+- ✅ Real-time position queries
+- ✅ Configurable history loading:
+  - ✅ By position count (10-500)
+  - ✅ By time range (5-1440 minutes)
+  - ✅ New `getHistoryByTime` query
+- ✅ Timestamp display fixes:
+  - ✅ Auto-detect seconds vs milliseconds
+  - ✅ Convert to local timezone
+  - ✅ Tappable toggle (relative ↔ absolute)
+- ✅ Broker management UI:
+  - ✅ Create, edit, delete brokers
+  - ✅ Toggle enabled/disabled
+  - ✅ Full CRUD matching admin UI
+- ✅ UI/UX improvements:
+  - ✅ Full-screen map (removed iOS safe area)
+  - ✅ InfoPanel repositioned
+  - ✅ Trail toggle with error handling
+  - ✅ Single back button in settings
+- ✅ Map components updated (native + web)
+- ✅ Settings screen with validation
+- ✅ Comprehensive documentation
 
 ### 📋 Planned
-- User authentication
+- User authentication (Clerk/Auth0)
 - Geofencing alerts
 - Battery monitoring
-- Multi-user support
+- Multi-user support (userId activation)
 - Historical data export
+- Push notifications
+- Offline mode
 
 ---
 
 **Last Updated:** November 18, 2025  
-**Status:** ✅ Sync service fully operational and logging positions | ⏳ Expo app needs Convex integration  
+**Status:** ✅ FULLY OPERATIONAL - Sync service + Expo app both integrated with Convex  
 **Current Device:** !9e75c710 (Landers) - Actively tracking  
-**Next Session:** Focus on Expo app Convex integration (Priority 1-4 above)
+**Features:** Real-time updates, configurable history, broker management, timestamp toggle  
+**Next Steps:** User authentication, geofencing, advanced analytics

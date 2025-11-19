@@ -4,6 +4,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 're
 import { useTrackerStore } from '@/store/useTrackerStore';
 import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
+import { formatTimestamp } from '@/utils/format';
 
 export default function TrackerMap() {
   const mapRef = useRef<MapView>(null);
@@ -19,11 +20,11 @@ export default function TrackerMap() {
     deviceId ? { deviceId } : 'skip'
   );
   
-  // Fetch historical trail based on mode
+  // Fetch historical positions based on mode (cap at 50 for iOS stability)
   const positionsByCount = useQuery(
     api.positions.getHistory,
     deviceId && settings?.historyMode === 'positions' 
-      ? { deviceId, limit: settings.historyPositionCount || 100 } 
+      ? { deviceId, limit: Math.min(settings.historyPositionCount || 50, 50) } 
       : 'skip'
   );
   
@@ -37,6 +38,13 @@ export default function TrackerMap() {
   // Use the appropriate data source based on mode
   const positionsData = settings?.historyMode === 'time' ? positionsByTime : positionsByCount;
   
+  console.log('🔍 Trail Debug - positionsData:', {
+    historyMode: settings?.historyMode,
+    positionsDataLength: positionsData?.length || 0,
+    showTrail: settings?.showTrail,
+    deviceId: deviceId
+  });
+  
   // Convert Convex positions to the format expected by the map
   const positions = positionsData?.map(p => ({
     latitude: p.latitude,
@@ -44,8 +52,14 @@ export default function TrackerMap() {
     timestamp: p.timestamp,
   })).reverse() || []; // Reverse to get oldest first
   
-  // Use Apple Maps on iOS, Google Maps on Android
-  const mapProvider = Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE;
+  console.log('🔍 Trail Debug - mapped positions:', {
+    positionsLength: positions.length,
+    firstPosition: positions[0],
+    lastPosition: positions[positions.length - 1]
+  });
+  
+  // Use Google Maps on both iOS and Android for better Polyline support
+  const mapProvider = PROVIDER_GOOGLE;
   
   useEffect(() => {
     if (lastPosition && mapRef.current) {
@@ -97,18 +111,44 @@ export default function TrackerMap() {
         showsCompass={true}
         showsScale={true}
       >
-        {settings?.showTrail && positions.length > 1 && (
-          <Polyline
-            coordinates={positions.map(p => ({
+        {(() => {
+          try {
+            const shouldRender = settings?.showTrail && positions.length > 1;
+            const coordinates = shouldRender ? positions.map(p => ({
               latitude: p.latitude,
               longitude: p.longitude,
-            }))}
-            strokeColor="#3b82f6"
-            strokeWidth={3}
-            lineCap="round"
-            lineJoin="round"
-          />
-        )}
+            })) : [];
+            
+            console.log('🔍 Trail Debug - Polyline render check:', {
+              shouldRender,
+              showTrail: settings?.showTrail,
+              positionsLength: positions.length,
+              coordinatesCount: coordinates.length,
+              platform: Platform.OS
+            });
+            
+            if (!shouldRender) return null;
+            
+            // iOS Polyline is crashing - temporarily disable
+            if (Platform.OS === 'ios') {
+              console.log('🔍 iOS Trail - Polyline disabled on iOS due to crashes');
+              console.log('🔍 iOS Trail - Would render', coordinates.length, 'points');
+              // TODO: Fix iOS Polyline rendering issue
+              return null;
+            } else {
+              return (
+                <Polyline
+                  coordinates={coordinates}
+                  strokeColor="#3b82f6"
+                  strokeWidth={3}
+                />
+              );
+            }
+          } catch (error) {
+            console.error('🔍 Trail Debug - Polyline crash:', error);
+            return null;
+          }
+        })()}
         
         {lastPosition && (
           <Marker
@@ -117,7 +157,7 @@ export default function TrackerMap() {
               longitude: lastPosition.longitude,
             }}
             title={enabledUnit?.name || "Tracker"}
-            description={`Last updated: ${new Date(lastPosition.timestamp).toLocaleTimeString()}`}
+            description={`Last updated: ${formatTimestamp(lastPosition.timestamp)}`}
             pinColor="#3b82f6"
           />
         )}

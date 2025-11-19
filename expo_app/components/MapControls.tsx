@@ -19,7 +19,9 @@ export default function MapControls() {
   
   const handleToggleTrail = () => {
     try {
-      updateSettings({ showTrail: !settings.showTrail });
+      const newShowTrail = !settings.showTrail;
+      console.log('🔍 Trail Toggle - Before:', settings.showTrail, 'After:', newShowTrail);
+      updateSettings({ showTrail: newShowTrail });
     } catch (error) {
       console.error('Error toggling trail:', error);
     }
