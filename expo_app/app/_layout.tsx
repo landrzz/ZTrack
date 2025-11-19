@@ -1,3 +1,4 @@
+import "react-native-gesture-handler";
 import {
   DefaultTheme,
   ThemeProvider,
@@ -11,6 +12,7 @@ import "react-native-reanimated";
 import "../global.css";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import Constants from "expo-constants";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -35,20 +37,22 @@ export default function RootLayout() {
   }
 
   return (
-    <ConvexProvider client={convex}>
-      <ThemeProvider value={DefaultTheme}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="settings" />
-          <Stack.Screen name="brokers" />
-          <Stack.Screen name="onboarding" />
-        </Stack>
-        <StatusBar style="dark" />
-      </ThemeProvider>
-    </ConvexProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ConvexProvider client={convex}>
+        <ThemeProvider value={DefaultTheme}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="settings" />
+            <Stack.Screen name="brokers" />
+            <Stack.Screen name="onboarding" />
+          </Stack>
+          <StatusBar style="dark" />
+        </ThemeProvider>
+      </ConvexProvider>
+    </GestureHandlerRootView>
   );
 }
