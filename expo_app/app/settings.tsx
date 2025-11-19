@@ -36,8 +36,8 @@ export default function SettingsScreen() {
       return;
     }
     
-    if (isNaN(posCount) || posCount < 5 || posCount > 50) {
-      Alert.alert('Invalid Position Count', 'Please enter a position count between 5 and 50');
+    if (isNaN(posCount) || posCount < 5 || posCount > 200) {
+      Alert.alert('Invalid Position Count', 'Please enter a position count between 5 and 200');
       return;
     }
     
@@ -64,7 +64,11 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+          activeOpacity={1}
+        >
           <ChevronLeft size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
@@ -81,6 +85,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.navigationButton}
             onPress={() => router.push('/brokers')}
+            activeOpacity={1}
           >
             <View style={styles.navigationButtonContent}>
               <Server size={20} color="#3b82f6" />
@@ -95,6 +100,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.navigationButton}
             onPress={() => router.push('/trackers')}
+            activeOpacity={1}
           >
             <View style={styles.navigationButtonContent}>
               <Dog size={20} color="#3b82f6" />
@@ -119,7 +125,7 @@ export default function SettingsScreen() {
               placeholder="100"
               keyboardType="number-pad"
             />
-            <Text style={styles.hint}>Number of positions to keep in trail (5-50)</Text>
+            <Text style={styles.hint}>Positions shown in map trail (5-50)</Text>
           </View>
           
           <View style={styles.inputGroup}>
@@ -131,6 +137,7 @@ export default function SettingsScreen() {
                   historyMode === 'positions' && styles.styleButtonActive,
                 ]}
                 onPress={() => setHistoryMode('positions')}
+                activeOpacity={1}
               >
                 <Text
                   style={[
@@ -148,6 +155,7 @@ export default function SettingsScreen() {
                   historyMode === 'time' && styles.styleButtonActive,
                 ]}
                 onPress={() => setHistoryMode('time')}
+                activeOpacity={1}
               >
                 <Text
                   style={[
@@ -172,7 +180,7 @@ export default function SettingsScreen() {
                 placeholder="100"
                 keyboardType="number-pad"
               />
-              <Text style={styles.hint}>Load last N positions (5-50)</Text>
+              <Text style={styles.hint}>Positions pulled from server for list (5-200)</Text>
             </View>
           )}
           
@@ -199,6 +207,7 @@ export default function SettingsScreen() {
                   mapStyle === 'standard' && styles.styleButtonActive,
                 ]}
                 onPress={() => setMapStyle('standard')}
+                activeOpacity={1}
               >
                 <Text
                   style={[
@@ -216,6 +225,7 @@ export default function SettingsScreen() {
                   mapStyle === 'satellite' && styles.styleButtonActive,
                 ]}
                 onPress={() => setMapStyle('satellite')}
+                activeOpacity={1}
               >
                 <Text
                   style={[
@@ -233,6 +243,7 @@ export default function SettingsScreen() {
                   mapStyle === 'hybrid' && styles.styleButtonActive,
                 ]}
                 onPress={() => setMapStyle('hybrid')}
+                activeOpacity={1}
               >
                 <Text
                   style={[
@@ -273,7 +284,11 @@ export default function SettingsScreen() {
           </View>
         </View>
         
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+        <TouchableOpacity
+          style={styles.saveButton}
+          onPress={handleSave}
+          activeOpacity={1}
+        >
           <Save size={20} color="#fff" />
           <Text style={styles.saveButtonText}>Save Settings</Text>
         </TouchableOpacity>

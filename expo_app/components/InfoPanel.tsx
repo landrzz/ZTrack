@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { useTrackerStore } from '@/store/useTrackerStore';
 import { formatDistance, formatTimestamp, formatAbsoluteTimestamp } from '@/utils/format';
-import { MapPin, Clock, Activity, Navigation, List } from 'lucide-react-native';
+import { MapPin, Clock, Activity, Navigation, List, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
 import { useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ export default function InfoPanel() {
   const { units } = useTrackerStore();
   const router = useRouter();
   const [showAbsoluteTime, setShowAbsoluteTime] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   
   // Get the first enabled unit
   const enabledUnit = units.find(u => u.enabled);
@@ -31,74 +32,85 @@ export default function InfoPanel() {
   
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <TouchableOpacity 
+        style={[styles.header, isMinimized && styles.headerMinimized]}
+        onPress={() => setIsMinimized(!isMinimized)}
+        activeOpacity={0.7}
+      >
         <View style={styles.titleRow}>
           <MapPin size={20} color="#3b82f6" />
           <Text style={styles.deviceName}>{deviceName}</Text>
+          {isMinimized ? (
+            <ChevronDown size={18} color="#9ca3af" />
+          ) : (
+            <ChevronUp size={18} color="#9ca3af" />
+          )}
         </View>
         <View style={[styles.statusBadge, isConnected ? styles.connected : styles.disconnected]}>
           <View style={[styles.statusDot, isConnected ? styles.connectedDot : styles.disconnectedDot]} />
           <Text style={styles.statusText}>{isConnected ? 'Connected' : 'Disconnected'}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
       
-      {lastPosition ? (
-        <View style={styles.infoGrid}>
-          <TouchableOpacity 
-            style={styles.infoItem}
-            onPress={() => setShowAbsoluteTime(!showAbsoluteTime)}
-            activeOpacity={0.7}
-          >
-            <Clock size={16} color="#6b7280" />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Last Update</Text>
-              <Text style={styles.infoValue}>
-                {showAbsoluteTime 
-                  ? formatAbsoluteTimestamp(lastPosition.timestamp)
-                  : formatTimestamp(lastPosition.timestamp)
-                }
-              </Text>
-            </View>
-          </TouchableOpacity>
-          
-          <View style={styles.infoItem}>
-            <Navigation size={16} color="#6b7280" />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Distance</Text>
-              <Text style={styles.infoValue}>{formatDistance(distanceTraveled)}</Text>
-            </View>
-          </View>
-          
-          {lastPosition.accuracy && (
-            <View style={styles.infoItem}>
-              <Activity size={16} color="#6b7280" />
+      {!isMinimized && (
+        lastPosition ? (
+          <View style={styles.infoGrid}>
+            <TouchableOpacity 
+              style={styles.infoItem}
+              onPress={() => setShowAbsoluteTime(!showAbsoluteTime)}
+              activeOpacity={0.7}
+            >
+              <Clock size={16} color="#6b7280" />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Accuracy</Text>
-                <Text style={styles.infoValue}>PDOP: {lastPosition.accuracy.toFixed(2)}</Text>
+                <Text style={styles.infoLabel}>Last Update</Text>
+                <Text style={styles.infoValue}>
+                  {showAbsoluteTime 
+                    ? formatAbsoluteTimestamp(lastPosition.timestamp)
+                    : formatTimestamp(lastPosition.timestamp)
+                  }
+                </Text>
+              </View>
+            </TouchableOpacity>
+            
+            <View style={styles.infoItem}>
+              <Navigation size={16} color="#6b7280" />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Distance</Text>
+                <Text style={styles.infoValue}>{formatDistance(distanceTraveled)}</Text>
               </View>
             </View>
-          )}
-          
-          <View style={styles.coordinates}>
-            <View style={styles.coordHeader}>
-              <Text style={styles.coordLabel}>Coordinates</Text>
-              <TouchableOpacity 
-                style={styles.historyButton}
-                onPress={() => router.push('/position-history')}
-                activeOpacity={0.7}
-              >
-                <List size={16} color="#3b82f6" />
-              </TouchableOpacity>
+            
+            {lastPosition.accuracy && (
+              <View style={styles.infoItem}>
+                <Activity size={16} color="#6b7280" />
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Accuracy</Text>
+                  <Text style={styles.infoValue}>PDOP: {lastPosition.accuracy.toFixed(2)}</Text>
+                </View>
+              </View>
+            )}
+            
+            <View style={styles.coordinates}>
+              <View style={styles.coordHeader}>
+                <Text style={styles.coordLabel}>Coordinates</Text>
+                <TouchableOpacity 
+                  style={styles.historyButton}
+                  onPress={() => router.push('/position-history')}
+                  activeOpacity={0.7}
+                >
+                  <List size={16} color="#3b82f6" />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.coordValue}>
+                {lastPosition.latitude.toFixed(6)}, {lastPosition.longitude.toFixed(6)}
+              </Text>
             </View>
-            <Text style={styles.coordValue}>
-              {lastPosition.latitude.toFixed(6)}, {lastPosition.longitude.toFixed(6)}
-            </Text>
           </View>
-        </View>
-      ) : (
-        <View style={styles.waitingContainer}>
-          <Text style={styles.waitingText}>Waiting for position data...</Text>
-        </View>
+        ) : (
+          <View style={styles.waitingContainer}>
+            <Text style={styles.waitingText}>Waiting for position data...</Text>
+          </View>
+        )
       )}
     </View>
   );
@@ -125,10 +137,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  headerMinimized: {
+    marginBottom: 0,
+  },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
   },
   deviceName: {
     fontSize: 18,

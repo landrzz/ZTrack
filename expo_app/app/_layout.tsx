@@ -47,7 +47,7 @@ export default function RootLayout() {
           <Stack.Screen name="brokers" />
           <Stack.Screen name="onboarding" />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style="dark" />
       </ThemeProvider>
     </ConvexProvider>
   );

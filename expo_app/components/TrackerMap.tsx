@@ -58,8 +58,8 @@ export default function TrackerMap() {
     lastPosition: positions[positions.length - 1]
   });
   
-  // Use Google Maps on both iOS and Android for better Polyline support
-  const mapProvider = PROVIDER_GOOGLE;
+  // Use Apple Maps on iOS (since Polyline is disabled), Google Maps on Android
+  const mapProvider = Platform.OS === 'ios' ? PROVIDER_DEFAULT : PROVIDER_GOOGLE;
   
   useEffect(() => {
     if (lastPosition && mapRef.current) {
