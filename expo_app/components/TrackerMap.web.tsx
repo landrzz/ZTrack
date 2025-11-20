@@ -17,37 +17,37 @@ export default function TrackerMap() {
   const googleMapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const polylineRef = useRef<any>(null);
-  
+
   const { units, settings } = useTrackerStore();
-  
+
   // Get the first enabled unit's nodeId to track
   const enabledUnit = units.find(u => u.enabled);
   const deviceId = enabledUnit?.nodeId;
-  
+
   // Fetch real-time position data from Convex
   const lastPosition = useQuery(
     api.positions.getLatestPosition,
     deviceId ? { deviceId } : 'skip'
   );
-  
+
   // Fetch historical trail based on mode
   const positionsByCount = useQuery(
     api.positions.getHistory,
-    deviceId && settings?.historyMode === 'positions' 
-      ? { deviceId, limit: settings.historyPositionCount || 100 } 
+    deviceId && settings?.historyMode === 'positions'
+      ? { deviceId, limit: settings.historyPositionCount || 50 }
       : 'skip'
   );
-  
+
   const positionsByTime = useQuery(
     api.positions.getHistoryByTime,
     deviceId && settings?.historyMode === 'time'
       ? { deviceId, minutesAgo: settings.historyTimeMinutes || 60 }
       : 'skip'
   );
-  
+
   // Use the appropriate data source based on mode
   const positionsData = settings?.historyMode === 'time' ? positionsByTime : positionsByCount;
-  
+
   // Convert Convex positions to the format expected by Google Maps
   const allPositions = positionsData?.map(p => ({
     latitude: p.latitude,
@@ -61,21 +61,21 @@ export default function TrackerMap() {
     script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8`;
     script.async = true;
     script.defer = true;
-    
+
     script.onload = () => {
       if (mapRef.current && window.google) {
         // Initialize map
         googleMapRef.current = new window.google.maps.Map(mapRef.current, {
           center: { lat: 35.9132, lng: -79.0558 },
           zoom: 13,
-          mapTypeId: settings.mapStyle === 'satellite' ? 'satellite' : 
-                     settings.mapStyle === 'hybrid' ? 'hybrid' : 'roadmap',
+          mapTypeId: settings.mapStyle === 'satellite' ? 'satellite' :
+            settings.mapStyle === 'hybrid' ? 'hybrid' : 'roadmap',
         });
       }
     };
-    
+
     document.head.appendChild(script);
-    
+
     return () => {
       if (document.head.contains(script)) {
         document.head.removeChild(script);
@@ -86,8 +86,8 @@ export default function TrackerMap() {
   // Update map type when settings change
   useEffect(() => {
     if (googleMapRef.current) {
-      const mapType = settings.mapStyle === 'satellite' ? 'satellite' : 
-                      settings.mapStyle === 'hybrid' ? 'hybrid' : 'roadmap';
+      const mapType = settings.mapStyle === 'satellite' ? 'satellite' :
+        settings.mapStyle === 'hybrid' ? 'hybrid' : 'roadmap';
       googleMapRef.current.setMapTypeId(mapType);
     }
   }, [settings.mapStyle]);
@@ -99,7 +99,7 @@ export default function TrackerMap() {
     // Update marker
     if (lastPosition) {
       const position = { lat: lastPosition.latitude, lng: lastPosition.longitude };
-      
+
       if (markerRef.current) {
         markerRef.current.setPosition(position);
       } else {
@@ -109,7 +109,7 @@ export default function TrackerMap() {
           title: enabledUnit?.name || 'Tracker',
         });
       }
-      
+
       // Center map on marker
       googleMapRef.current.panTo(position);
     }
@@ -117,7 +117,7 @@ export default function TrackerMap() {
     // Update polyline (trail)
     if (settings?.showTrail && allPositions.length > 1) {
       const path = allPositions.map(p => ({ lat: p.latitude, lng: p.longitude }));
-      
+
       if (polylineRef.current) {
         polylineRef.current.setPath(path);
       } else {
@@ -144,7 +144,7 @@ export default function TrackerMap() {
       </View>
     );
   }
-  
+
   // Show message if no unit is enabled
   if (!deviceId) {
     return (
@@ -153,7 +153,7 @@ export default function TrackerMap() {
       </View>
     );
   }
-  
+
   return (
     <View style={styles.container}>
       <div ref={mapRef} style={{ width: '100%', height: '100%' }} />

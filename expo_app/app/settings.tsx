@@ -17,35 +17,35 @@ import { ChevronLeft, Save, Map as MapIcon, Server, ChevronRight, Dog } from 'lu
 export default function SettingsScreen() {
   const router = useRouter();
   const { settings, updateSettings } = useTrackerStore();
-  
+
   const [trailLength, setTrailLength] = useState(settings.trailLength.toString());
   const [mapStyle, setMapStyle] = useState<'standard' | 'satellite' | 'hybrid'>(settings.mapStyle);
   const [showTrail, setShowTrail] = useState(settings.showTrail);
   const [autoCenter, setAutoCenter] = useState(settings.autoCenter);
   const [historyMode, setHistoryMode] = useState<'positions' | 'time'>(settings.historyMode || 'positions');
-  const [historyPositionCount, setHistoryPositionCount] = useState((settings.historyPositionCount || 100).toString());
+  const [historyPositionCount, setHistoryPositionCount] = useState((settings.historyPositionCount || 50).toString());
   const [historyTimeMinutes, setHistoryTimeMinutes] = useState((settings.historyTimeMinutes || 60).toString());
-  
+
   const handleSave = () => {
     const trailNum = parseInt(trailLength);
     const posCount = parseInt(historyPositionCount);
     const timeMin = parseInt(historyTimeMinutes);
-    
+
     if (isNaN(trailNum) || trailNum < 5 || trailNum > 50) {
       Alert.alert('Invalid Trail Length', 'Please enter a trail length between 5 and 50');
       return;
     }
-    
+
     if (isNaN(posCount) || posCount < 5 || posCount > 200) {
       Alert.alert('Invalid Position Count', 'Please enter a position count between 5 and 200');
       return;
     }
-    
+
     if (isNaN(timeMin) || timeMin < 5 || timeMin > 1440) {
       Alert.alert('Invalid Time Range', 'Please enter a time range between 5 and 1440 minutes (24 hours)');
       return;
     }
-    
+
     updateSettings({
       trailLength: trailNum,
       mapStyle,
@@ -55,12 +55,12 @@ export default function SettingsScreen() {
       historyPositionCount: posCount,
       historyTimeMinutes: timeMin,
     });
-    
+
     Alert.alert('Settings Saved', 'Your settings have been updated.', [
       { text: 'OK', onPress: () => router.back() },
     ]);
   };
-  
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -74,14 +74,14 @@ export default function SettingsScreen() {
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={styles.placeholder} />
       </View>
-      
+
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Server Configuration</Text>
           <Text style={styles.sectionSubtitle}>
             Manage MQTT broker connections for tracking devices
           </Text>
-          
+
           <TouchableOpacity
             style={styles.navigationButton}
             onPress={() => router.push('/brokers')}
@@ -96,7 +96,7 @@ export default function SettingsScreen() {
             </View>
             <ChevronRight size={20} color="#9ca3af" />
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={styles.navigationButton}
             onPress={() => router.push('/trackers')}
@@ -112,22 +112,22 @@ export default function SettingsScreen() {
             <ChevronRight size={20} color="#9ca3af" />
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Map Settings</Text>
-          
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Trail Length (positions)</Text>
             <TextInput
               style={styles.input}
               value={trailLength}
               onChangeText={setTrailLength}
-              placeholder="100"
+              placeholder="50"
               keyboardType="number-pad"
             />
             <Text style={styles.hint}>Positions shown in map trail (5-50)</Text>
           </View>
-          
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>History Mode</Text>
             <View style={styles.buttonGroup}>
@@ -148,7 +148,7 @@ export default function SettingsScreen() {
                   By Count
                 </Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[
                   styles.styleButton,
@@ -169,7 +169,7 @@ export default function SettingsScreen() {
             </View>
             <Text style={styles.hint}>Choose how to load position history</Text>
           </View>
-          
+
           {historyMode === 'positions' && (
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Position Count</Text>
@@ -177,13 +177,13 @@ export default function SettingsScreen() {
                 style={styles.input}
                 value={historyPositionCount}
                 onChangeText={setHistoryPositionCount}
-                placeholder="100"
+                placeholder="50"
                 keyboardType="number-pad"
               />
               <Text style={styles.hint}>Positions pulled from server for list (5-200)</Text>
             </View>
           )}
-          
+
           {historyMode === 'time' && (
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Time Range (minutes)</Text>
@@ -197,7 +197,7 @@ export default function SettingsScreen() {
               <Text style={styles.hint}>Load positions from last N minutes (5-1440)</Text>
             </View>
           )}
-          
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Map Style</Text>
             <View style={styles.buttonGroup}>
@@ -218,7 +218,7 @@ export default function SettingsScreen() {
                   Standard
                 </Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[
                   styles.styleButton,
@@ -236,7 +236,7 @@ export default function SettingsScreen() {
                   Satellite
                 </Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[
                   styles.styleButton,
@@ -256,7 +256,7 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-          
+
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <Text style={styles.settingLabel}>Show Trail</Text>
@@ -269,7 +269,7 @@ export default function SettingsScreen() {
               thumbColor={showTrail ? '#3b82f6' : '#f3f4f6'}
             />
           </View>
-          
+
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <Text style={styles.settingLabel}>Auto Center</Text>
@@ -283,7 +283,7 @@ export default function SettingsScreen() {
             />
           </View>
         </View>
-        
+
         <TouchableOpacity
           style={styles.saveButton}
           onPress={handleSave}
