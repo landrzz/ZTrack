@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import TrackerMap from '@/components/TrackerMap';
+import TrackerMap, { TrackerMapRef } from '@/components/TrackerMap';
 import InfoPanel from '@/components/InfoPanel';
 import MapControls from '@/components/MapControls';
 import { useTrackerStore } from '@/store/useTrackerStore';
@@ -9,6 +9,7 @@ import { useTrackerStore } from '@/store/useTrackerStore';
 export default function HomeScreen() {
   const router = useRouter();
   const { hasCompletedOnboarding } = useTrackerStore();
+  const mapRef = useRef<TrackerMapRef>(null);
   
   useEffect(() => {
     if (!hasCompletedOnboarding) {
@@ -20,10 +21,14 @@ export default function HomeScreen() {
     return null;
   }
   
+  const handleCenterMap = () => {
+    mapRef.current?.centerOnLastPosition();
+  };
+  
   return (
     <View style={styles.container}>
-      <TrackerMap />
-      <MapControls />
+      <TrackerMap ref={mapRef} />
+      <MapControls onCenterMap={handleCenterMap} />
       <InfoPanel />
     </View>
   );

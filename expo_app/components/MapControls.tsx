@@ -4,16 +4,28 @@ import { Settings, Route, RotateCcw } from 'lucide-react-native';
 import { useTrackerStore } from '@/store/useTrackerStore';
 import { useRouter } from 'expo-router';
 
-export default function MapControls() {
+interface MapControlsProps {
+  onCenterMap?: () => void;
+}
+
+export default function MapControls({ onCenterMap }: MapControlsProps) {
   const { units, settings, updateSettings, clearTrail } = useTrackerStore();
   const router = useRouter();
   
   // Get the first enabled unit
   const enabledUnit = units.find(u => u.enabled);
   
-  const handleClearTrail = () => {
+  const handleRefresh = () => {
+    // Clear trail if unit exists (optional - won't block centering)
     if (enabledUnit) {
       clearTrail(enabledUnit.id);
+    }
+    // Always center map on last position, regardless of refresh success
+    if (onCenterMap) {
+      // Small delay to ensure trail is cleared first if it was cleared
+      setTimeout(() => {
+        onCenterMap();
+      }, 100);
     }
   };
   
@@ -38,10 +50,9 @@ export default function MapControls() {
       
       <TouchableOpacity
         style={styles.button}
-        onPress={handleClearTrail}
-        disabled={!enabledUnit}
+        onPress={handleRefresh}
       >
-        <RotateCcw size={24} color={enabledUnit ? '#6b7280' : '#d1d5db'} />
+        <RotateCcw size={24} color="#6b7280" />
       </TouchableOpacity>
       
       <TouchableOpacity
@@ -58,7 +69,7 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     top: 60,
-    right: 16,
+    left: 16,
     gap: 12,
   },
   button: {
