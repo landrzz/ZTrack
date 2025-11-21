@@ -48,6 +48,10 @@
             gap: 30px;
         }
 
+        .service-section {
+            grid-column: 1 / -1;
+        }
+
         @media (max-width: 968px) {
             .main-content {
                 grid-template-columns: 1fr;
@@ -155,6 +159,57 @@
 
         .btn-toggle.disabled {
             background: #cbd5e0;
+        }
+
+        .btn-service {
+            background: #48bb78;
+            color: white;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            min-width: 120px;
+        }
+
+        .btn-service:hover {
+            background: #38a169;
+        }
+
+        .btn-service.stop {
+            background: #e53e3e;
+        }
+
+        .btn-service.stop:hover {
+            background: #c53030;
+        }
+
+        .btn-service:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+
+        .service-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 12px;
+        }
+
+        .service-status.running {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .service-status.stopped {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .service-status.error {
+            background: #feebc8;
+            color: #7c2d12;
         }
 
         .broker-list {
@@ -289,6 +344,34 @@
         </header>
 
         <div class="main-content">
+            <!-- Service Control Card -->
+            <div class="card service-section">
+                <h2>⚙️ Sync Service Control</h2>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <p style="color: #4a5568; margin-bottom: 8px;">
+                            Control the Meshtastic sync service that connects to MQTT brokers and processes position data.
+                        </p>
+                        <div style="display: flex; align-items: center;">
+                            <button id="serviceToggleBtn" class="btn btn-service" onclick="toggleService()">
+                                Start Service
+                            </button>
+                            <span id="serviceStatus" class="service-status stopped">
+                                ● Stopped
+                            </span>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 12px; color: #718096; margin-bottom: 4px;">
+                            Process ID: <span id="servicePid" class="code">None</span>
+                        </div>
+                        <div style="font-size: 12px; color: #718096;">
+                            Started: <span id="serviceStartTime">Never</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Add Broker Form -->
             <div class="card">
                 <h2>➕ Add New Broker</h2>
@@ -625,6 +708,86 @@
 
         // Refresh broker list every 10 seconds
         setInterval(loadBrokers, 10000);
+        
+        // Service management
+        let serviceStatusInterval = null;
+
+        // Start service status polling
+        startServiceStatusPoll();
+
+        async function startServiceStatusPoll() {
+            await updateServiceStatus();
+            serviceStatusInterval = setInterval(updateServiceStatus, 5000);
+        }
+
+        async function updateServiceStatus() {
+            try {
+                const response = await fetch('/api/service/status');
+                const status = await response.json();
+                
+                const btn = document.getElementById('serviceToggleBtn');
+                const statusSpan = document.getElementById('serviceStatus');
+                const pidSpan = document.getElementById('servicePid');
+                const startTimeSpan = document.getElementById('serviceStartTime');
+
+                if (status.running) {
+                    btn.textContent = 'Stop Service';
+                    btn.className = 'btn btn-service stop';
+                    statusSpan.textContent = '● Running';
+                    statusSpan.className = 'service-status running';
+                    pidSpan.textContent = status.pid || 'Unknown';
+                    startTimeSpan.textContent = status.startTime ? new Date(status.startTime).toLocaleString() : 'Unknown';
+                } else {
+                    btn.textContent = 'Start Service';
+                    btn.className = 'btn btn-service';
+                    statusSpan.textContent = '● Stopped';
+                    statusSpan.className = 'service-status stopped';
+                    pidSpan.textContent = 'None';
+                    startTimeSpan.textContent = 'Never';
+                }
+
+                btn.disabled = false;
+            } catch (error) {
+                console.error('Error checking service status:', error);
+                const btn = document.getElementById('serviceToggleBtn');
+                const statusSpan = document.getElementById('serviceStatus');
+                
+                btn.textContent = 'Start Service';
+                btn.className = 'btn btn-service';
+                statusSpan.textContent = '● Error';
+                statusSpan.className = 'service-status error';
+                btn.disabled = false;
+            }
+        }
+
+        window.toggleService = async function() {
+            const btn = document.getElementById('serviceToggleBtn');
+            const isRunning = btn.textContent.includes('Stop') || btn.className.includes('stop');
+            
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+
+            try {
+                const endpoint = isRunning ? '/api/service/stop' : '/api/service/start';
+                
+                const response = await fetch(endpoint, { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus(`✓ ${result.message}`, 'success');
+                } else {
+                    showStatus(`✗ ${result.message}`, 'error');
+                }
+                
+                // Update status immediately
+                await updateServiceStatus();
+            } catch (error) {
+                console.error('Error toggling service:', error);
+                showStatus('✗ Error: ' + error.message, 'error');
+                btn.disabled = false;
+                btn.textContent = isRunning ? 'Stop Service' : 'Start Service';
+            }
+        };
         
         }); // End of window.addEventListener('load')
     </script>

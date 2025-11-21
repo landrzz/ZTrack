@@ -1,9 +1,15 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
+const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.ADMIN_PORT || 3001;
+
+// Service process management
+let serviceProcess = null;
+let serviceStartTime = null;
+let serviceStatus = 'stopped'; // 'running', 'stopped', 'error'
 
 // Enable CORS for all routes
 app.use(cors());
@@ -28,6 +34,99 @@ app.get('/', (req, res) => {
   console.log('[AdminServer] Injecting Convex URL:', convexUrl);
   
   res.send(html);
+});
+
+// Service management endpoints
+app.get('/api/service/status', (req, res) => {
+  res.json({
+    status: serviceStatus,
+    running: serviceProcess !== null && !serviceProcess.killed,
+    startTime: serviceStartTime,
+    pid: serviceProcess ? serviceProcess.pid : null
+  });
+});
+
+app.post('/api/service/start', (req, res) => {
+  if (serviceProcess && !serviceProcess.killed) {
+    return res.json({ success: false, message: 'Service is already running' });
+  }
+
+  try {
+    // Start the multi-broker service
+    serviceProcess = spawn('npm', ['run', 'dev'], {
+      cwd: __dirname,
+      detached: false,
+      stdio: 'pipe'
+    });
+
+    serviceStartTime = new Date().toISOString();
+    serviceStatus = 'running';
+
+    serviceProcess.on('error', (error) => {
+      console.error('Service process error:', error);
+      serviceStatus = 'error';
+      serviceProcess = null;
+    });
+
+    serviceProcess.on('exit', (code, signal) => {
+      console.log(`Service process exited with code ${code}, signal ${signal}`);
+      serviceStatus = 'stopped';
+      serviceProcess = null;
+      serviceStartTime = null;
+    });
+
+    // Log output for debugging
+    serviceProcess.stdout.on('data', (data) => {
+      console.log(`[Service] ${data.toString()}`);
+    });
+
+    serviceProcess.stderr.on('data', (data) => {
+      console.error(`[Service Error] ${data.toString()}`);
+    });
+
+    console.log(`[AdminServer] Started sync service with PID: ${serviceProcess.pid}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Service started successfully',
+      pid: serviceProcess.pid,
+      startTime: serviceStartTime
+    });
+  } catch (error) {
+    console.error('Failed to start service:', error);
+    serviceStatus = 'error';
+    res.json({ success: false, message: error.message });
+  }
+});
+
+app.post('/api/service/stop', (req, res) => {
+  if (!serviceProcess || serviceProcess.killed) {
+    return res.json({ success: false, message: 'Service is not running' });
+  }
+
+  try {
+    console.log(`[AdminServer] Stopping sync service (PID: ${serviceProcess.pid})`);
+    
+    // Try graceful shutdown first
+    serviceProcess.kill('SIGTERM');
+    
+    // Force kill after 5 seconds if it doesn't stop
+    setTimeout(() => {
+      if (serviceProcess && !serviceProcess.killed) {
+        console.log('[AdminServer] Force killing service...');
+        serviceProcess.kill('SIGKILL');
+      }
+    }, 5000);
+
+    serviceStatus = 'stopped';
+    serviceProcess = null;
+    serviceStartTime = null;
+
+    res.json({ success: true, message: 'Service stopped successfully' });
+  } catch (error) {
+    console.error('Failed to stop service:', error);
+    res.json({ success: false, message: error.message });
+  }
 });
 
 // Health check endpoint
