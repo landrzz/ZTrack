@@ -45,6 +45,7 @@ const getGoogleMapType = (mapStyle?: 'standard' | 'satellite' | 'hybrid'): 'NORM
 const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
   const { units, settings } = useTrackerStore();
   const [cameraKey, setCameraKey] = useState(0);
+  const [mapStyleKey, setMapStyleKey] = useState(0);
   const hasInitiallycentered = useRef(false);
 
   // Get the first enabled unit's nodeId to track
@@ -132,6 +133,9 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
     [centerPosition?.latitude, centerPosition?.longitude, cameraKey]
   );
 
+  // Create a combined key that includes both camera and map style changes
+  const mapKey = `${cameraKey}-${mapStyleKey}`;
+
   // Expose method to parent component to center map
   useImperativeHandle(ref, () => ({
     centerOnLastPosition: () => {
@@ -151,8 +155,9 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
   // Force re-render when map style changes
   useEffect(() => {
     console.log('🗺️ Map style changed to:', settings?.mapStyle);
-    setCameraKey(prev => prev + 1);
-  }, [settings?.mapStyle]);
+    console.log('🗺️ Full settings object:', settings);
+    setMapStyleKey(prev => prev + 1);
+  }, [settings?.mapStyle, settings]);
 
   // Show message if no unit is enabled
   if (!deviceId) {
@@ -169,26 +174,129 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
   const trailPositions = positions.slice(-trailLength); // Get last N positions
 
   const shouldShowTrail = settings?.showTrail && trailPositions.length > 1;
-  const polylines = shouldShowTrail ? [{
-    id: 'tracker-trail',
-    coordinates: trailPositions,
-    color: '#3b82f6',
-    ...(Platform.OS === 'ios' ? { lineWidth: 4 } : { width: 4 })
-  }] : [];
+  
+  // Create gradient trail effect - split into segments with varying opacity
+  // This helps show direction: older positions are more transparent, newer are more opaque
+  const polylines = shouldShowTrail && trailPositions.length > 1 ? 
+    (() => {
+      const segments = [];
+      const segmentCount = Math.min(5, trailPositions.length - 1); // Create up to 5 segments
+      const pointsPerSegment = Math.ceil(trailPositions.length / segmentCount);
+      
+      for (let i = 0; i < segmentCount; i++) {
+        const start = i * pointsPerSegment;
+        const end = Math.min((i + 1) * pointsPerSegment + 1, trailPositions.length); // +1 for overlap
+        const segmentCoords = trailPositions.slice(start, end);
+        
+        if (segmentCoords.length < 2) continue;
+        
+        // Calculate opacity: older segments (lower i) are more transparent
+        const opacity = 0.3 + (i / segmentCount) * 0.7; // Range from 0.3 to 1.0
+        const baseColor = enabledUnit?.color || '#ec4899';
+        
+        // Convert hex to rgba with opacity
+        const hexToRgba = (hex: string, alpha: number) => {
+          const r = parseInt(hex.slice(1, 3), 16);
+          const g = parseInt(hex.slice(3, 5), 16);
+          const b = parseInt(hex.slice(5, 7), 16);
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        };
+        
+        segments.push({
+          id: `tracker-trail-segment-${i}`,
+          coordinates: segmentCoords,
+          color: hexToRgba(baseColor, opacity),
+          ...(Platform.OS === 'ios' ? { 
+            lineWidth: 3,
+          } : { 
+            width: 3,
+          })
+        });
+      }
+      
+      return segments;
+    })()
+    : [];
+
+  // Create directional arrow markers along the trail to show movement direction
+  const arrowInterval = Math.max(3, Math.floor(trailPositions.length / 6)); // Show ~6 arrows max
+  const directionMarkers = shouldShowTrail && trailPositions.length > 2 ? trailPositions
+    .map((pos, index) => {
+      // Skip first and last points, and only show at intervals
+      if (index === 0 || index === trailPositions.length - 1 || index % arrowInterval !== 0) {
+        return null;
+      }
+      
+      // Calculate bearing/direction from previous point to this point
+      const prevPos = trailPositions[index - 1];
+      const bearing = Math.atan2(
+        pos.longitude - prevPos.longitude,
+        pos.latitude - prevPos.latitude
+      ) * (180 / Math.PI);
+      
+      return {
+        id: `trail-arrow-${index}`,
+        coordinates: pos,
+        ...(Platform.OS === 'ios' ? {
+          sfSymbol: 'arrowtriangle.forward.fill',
+          tintColor: enabledUnit?.color || '#ec4899',
+          // Note: rotation might not be supported, but we'll try
+        } : {
+          // For Android, we could use a custom icon
+        })
+      };
+    })
+    .filter(marker => marker !== null)
+    : [];
+  
+  // Create small dot markers at GPS points for reference
+  const trailPointInterval = Math.max(2, Math.floor(trailPositions.length / 15)); // Show ~15 dots max
+  const trailPointMarkers = shouldShowTrail ? trailPositions
+    .map((pos, index) => ({
+      id: `trail-point-${index}`,
+      coordinates: pos,
+      // Use a small colored dot - on iOS we can use SF Symbols
+      ...(Platform.OS === 'ios' ? {
+        sfSymbol: 'smallcircle.filled.circle',
+        tintColor: enabledUnit?.color || '#ec4899',
+      } : {
+        // For Android, we'll just show fewer markers
+      })
+    }))
+    .filter((_, index) => index % trailPointInterval === 0) // Show interval points only
+    : [];
+
+  // Main marker at current position
+  const currentMarker = lastPosition ? {
+    id: 'tracker-current',
+    coordinates: { latitude: lastPosition.latitude, longitude: lastPosition.longitude },
+    title: enabledUnit?.name || "Tracker",
+    subtitle: `Last updated: ${formatTimestamp(lastPosition.timestamp)}`,
+    ...(Platform.OS === 'ios' ? {
+      sfSymbol: 'location.fill',
+      tintColor: enabledUnit?.color || '#3b82f6',
+    } : {})
+  } : null;
+
+  // Combine all markers - order matters for z-index (later = on top)
+  const markers = [
+    ...(Platform.OS === 'ios' ? trailPointMarkers : []), // Small dots at GPS points
+    ...(Platform.OS === 'ios' ? directionMarkers : []), // Direction arrows
+    ...(currentMarker ? [currentMarker] : []) // Current position on top
+  ];
 
   console.log('🔍 Trail Debug - Trail rendering:', {
     totalPositions: positions.length,
     trailLengthSetting: trailLength,
     trailPositionsUsed: trailPositions.length,
-    shouldShowTrail
+    shouldShowTrail,
+    trailColor: enabledUnit?.color || '#ec4899',
+    unitName: enabledUnit?.name,
+    polylineSegments: polylines.length,
+    trailDots: trailPointMarkers.length,
+    directionArrows: directionMarkers.length,
+    totalMarkers: markers.length
   });
-
-  const markers = lastPosition ? [{
-    id: 'tracker-current',
-    coordinates: { latitude: lastPosition.latitude, longitude: lastPosition.longitude },
-    title: enabledUnit?.name || "Tracker",
-    subtitle: `Last updated: ${formatTimestamp(lastPosition.timestamp)}`
-  }] : [];
 
   console.log('🔍 Trail Debug - Rendering:', {
     shouldShowTrail,
@@ -214,9 +322,11 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
     return (
       <View style={styles.container}>
         <AppleMapsComponent
-          key={cameraKey}
+          key={mapKey}
           style={styles.map}
-          mapType={mapTypeValue}
+          properties={{
+            mapType: mapTypeValue
+          }}
           cameraPosition={initialCamera}
           polylines={polylines}
           markers={markers}
@@ -233,9 +343,11 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
     return (
       <View style={styles.container}>
         <GoogleMapsComponent
-          key={cameraKey}
+          key={mapKey}
           style={styles.map}
-          mapType={mapTypeValue}
+          properties={{
+            mapType: mapTypeValue
+          }}
           cameraPosition={initialCamera}
           polylines={polylines}
           markers={markers}
@@ -261,6 +373,20 @@ const styles = StyleSheet.create({
   map: {
     width: '100%',
     height: '100%',
+  },
+  debugOverlay: {
+    position: 'absolute',
+    top: 50,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  debugText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
   },
   webFallback: {
     flex: 1,

@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.landrzz.testtempo'
+    namespace 'com.landrzz.ztrack'
     defaultConfig {
-        applicationId 'com.landrzz.testtempo'
+        applicationId 'com.landrzz.ztrack'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

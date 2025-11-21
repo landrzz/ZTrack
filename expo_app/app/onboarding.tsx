@@ -149,23 +149,29 @@ export default function OnboardingScreen() {
           
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Color</Text>
-            <View style={styles.colorGrid}>
-              {COLOR_OPTIONS.map((color) => (
-                <TouchableOpacity
-                  key={color}
-                  style={[
-                    styles.colorButton,
-                    { backgroundColor: color },
-                    selectedColor === color && styles.colorButtonActive,
-                  ]}
-                  onPress={() => setSelectedColor(color)}
-                >
-                  {selectedColor === color && (
-                    <Check size={20} color="#fff" strokeWidth={3} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.colorScrollContainer}
+            >
+              <View style={styles.colorGrid}>
+                {COLOR_OPTIONS.map((color) => (
+                  <TouchableOpacity
+                    key={color}
+                    style={[
+                      styles.colorButton,
+                      { backgroundColor: color },
+                      selectedColor === color && styles.colorButtonActive,
+                    ]}
+                    onPress={() => setSelectedColor(color)}
+                  >
+                    {selectedColor === color && (
+                      <Check size={20} color="#fff" strokeWidth={3} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
           </View>
         </View>
         
@@ -264,10 +270,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   iconButtonActive: {
     backgroundColor: '#3b82f6',
     borderColor: '#3b82f6',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   iconLabel: {
     fontSize: 12,
@@ -280,6 +296,9 @@ const styles = StyleSheet.create({
   colorGrid: {
     flexDirection: 'row',
     gap: 12,
+  },
+  colorScrollContainer: {
+    paddingRight: 20,
   },
   colorButton: {
     width: 48,

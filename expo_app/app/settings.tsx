@@ -18,6 +18,8 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { settings, updateSettings } = useTrackerStore();
 
+  console.log('⚙️ Current settings on load:', settings);
+
   const [trailLength, setTrailLength] = useState(settings.trailLength.toString());
   const [mapStyle, setMapStyle] = useState<'standard' | 'satellite' | 'hybrid'>(settings.mapStyle);
   const [showTrail, setShowTrail] = useState(settings.showTrail);
@@ -46,7 +48,7 @@ export default function SettingsScreen() {
       return;
     }
 
-    updateSettings({
+    const newSettings = {
       trailLength: trailNum,
       mapStyle,
       showTrail,
@@ -54,7 +56,10 @@ export default function SettingsScreen() {
       historyMode,
       historyPositionCount: posCount,
       historyTimeMinutes: timeMin,
-    });
+    };
+
+    console.log('💾 Saving settings:', newSettings);
+    updateSettings(newSettings);
 
     Alert.alert('Settings Saved', 'Your settings have been updated.', [
       { text: 'OK', onPress: () => router.back() },

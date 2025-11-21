@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "test-tempo",
-    "slug": "test-tempo",
+    "name": "Z Track",
+    "slug": "z-track",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -13,7 +13,7 @@
       "config": {
         "googleMapsApiKey": "YOUR_IOS_API_KEY"
       },
-      "bundleIdentifier": "com.landrzz.test-tempo"
+      "bundleIdentifier": "com.landrzz.ztrack"
     },
     "android": {
       "adaptiveIcon": {
@@ -32,7 +32,7 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "com.landrzz.testtempo"
+      "package": "com.landrzz.ztrack"
     },
     "web": {
       "bundler": "metro",

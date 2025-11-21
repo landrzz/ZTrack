@@ -1,4 +1,4 @@
-package com.landrzz.testtempo
+package com.landrzz.ztrack
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
