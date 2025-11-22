@@ -39,7 +39,16 @@ export default function InfoPanel() {
   );
 
   // Connection status - consider connected if we have recent data
-  const isConnected = lastPosition ? (Date.now() - lastPosition.timestamp < 300000) : false; // 5 minutes
+  // Handle both seconds and milliseconds timestamps from Convex
+  const lastTimestampMs = lastPosition
+    ? (lastPosition.timestamp < 10000000000
+        ? lastPosition.timestamp * 1000
+        : lastPosition.timestamp)
+    : null;
+
+  const isConnected = lastTimestampMs !== null
+    ? (Date.now() - lastTimestampMs < 300000) // 5 minutes
+    : false;
 
   // Calculate distance traveled (we'll need to implement this if needed)
   const distanceTraveled = enabledUnit?.distanceTraveled || 0;

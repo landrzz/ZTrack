@@ -175,7 +175,7 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
 
   const shouldShowTrail = settings?.showTrail && trailPositions.length > 1;
   
-  // Create gradient trail effect - split into segments with varying opacity
+  // Create gradient trail effect with dashed pattern - split into segments with varying opacity
   // This helps show direction: older positions are more transparent, newer are more opaque
   const polylines = shouldShowTrail && trailPositions.length > 1 ? 
     (() => {
@@ -208,8 +208,10 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
           color: hexToRgba(baseColor, opacity),
           ...(Platform.OS === 'ios' ? { 
             lineWidth: 3,
+            pattern: [8, 6] // Dashed pattern: 8 points on, 6 points off
           } : { 
             width: 3,
+            pattern: [8, 6] // Dashed pattern for Android
           })
         });
       }
@@ -218,52 +220,21 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
     })()
     : [];
 
-  // Create directional arrow markers along the trail to show movement direction
-  const arrowInterval = Math.max(3, Math.floor(trailPositions.length / 6)); // Show ~6 arrows max
-  const directionMarkers = shouldShowTrail && trailPositions.length > 2 ? trailPositions
-    .map((pos, index) => {
-      // Skip first and last points, and only show at intervals
-      if (index === 0 || index === trailPositions.length - 1 || index % arrowInterval !== 0) {
-        return null;
-      }
-      
-      // Calculate bearing/direction from previous point to this point
-      const prevPos = trailPositions[index - 1];
-      const bearing = Math.atan2(
-        pos.longitude - prevPos.longitude,
-        pos.latitude - prevPos.latitude
-      ) * (180 / Math.PI);
-      
-      return {
-        id: `trail-arrow-${index}`,
-        coordinates: pos,
-        ...(Platform.OS === 'ios' ? {
-          sfSymbol: 'arrowtriangle.forward.fill',
-          tintColor: enabledUnit?.color || '#ec4899',
-          // Note: rotation might not be supported, but we'll try
-        } : {
-          // For Android, we could use a custom icon
-        })
-      };
-    })
-    .filter(marker => marker !== null)
-    : [];
-  
-  // Create small dot markers at GPS points for reference
-  const trailPointInterval = Math.max(2, Math.floor(trailPositions.length / 15)); // Show ~15 dots max
-  const trailPointMarkers = shouldShowTrail ? trailPositions
+  // Create small circle markers at ALL GPS points (except the last one which gets the main marker)
+  // These will be simple dots without titles/callouts
+  const trailPointMarkers = shouldShowTrail && trailPositions.length > 1 ? trailPositions
+    .slice(0, -1) // Exclude the last position (it gets the main marker)
     .map((pos, index) => ({
       id: `trail-point-${index}`,
       coordinates: pos,
       // Use a small colored dot - on iOS we can use SF Symbols
       ...(Platform.OS === 'ios' ? {
-        sfSymbol: 'smallcircle.filled.circle',
+        sfSymbol: 'circle.fill',
         tintColor: enabledUnit?.color || '#ec4899',
       } : {
-        // For Android, we'll just show fewer markers
+        // For Android, we could use a custom icon or just skip
       })
     }))
-    .filter((_, index) => index % trailPointInterval === 0) // Show interval points only
     : [];
 
   // Main marker at current position
@@ -280,9 +251,8 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
 
   // Combine all markers - order matters for z-index (later = on top)
   const markers = [
-    ...(Platform.OS === 'ios' ? trailPointMarkers : []), // Small dots at GPS points
-    ...(Platform.OS === 'ios' ? directionMarkers : []), // Direction arrows
-    ...(currentMarker ? [currentMarker] : []) // Current position on top
+    ...(Platform.OS === 'ios' ? trailPointMarkers : []), // Small dots at all GPS points except last
+    ...(currentMarker ? [currentMarker] : []) // Current position marker on top (only one with title)
   ];
 
   console.log('🔍 Trail Debug - Trail rendering:', {
@@ -294,7 +264,6 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
     unitName: enabledUnit?.name,
     polylineSegments: polylines.length,
     trailDots: trailPointMarkers.length,
-    directionArrows: directionMarkers.length,
     totalMarkers: markers.length
   });
 
