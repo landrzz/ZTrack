@@ -175,6 +175,16 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
 
   const shouldShowTrail = settings?.showTrail && trailPositions.length > 1;
   
+  // Helper to convert hex to rgba
+  const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+  
+  const baseColor = enabledUnit?.color || '#ec4899';
+
   // Create gradient trail effect with dashed pattern - split into segments with varying opacity
   // This helps show direction: older positions are more transparent, newer are more opaque
   const polylines = shouldShowTrail && trailPositions.length > 1 ? 
@@ -192,15 +202,6 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
         
         // Calculate opacity: older segments (lower i) are more transparent
         const opacity = 0.3 + (i / segmentCount) * 0.7; // Range from 0.3 to 1.0
-        const baseColor = enabledUnit?.color || '#ec4899';
-        
-        // Convert hex to rgba with opacity
-        const hexToRgba = (hex: string, alpha: number) => {
-          const r = parseInt(hex.slice(1, 3), 16);
-          const g = parseInt(hex.slice(3, 5), 16);
-          const b = parseInt(hex.slice(5, 7), 16);
-          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        };
         
         segments.push({
           id: `tracker-trail-segment-${i}`,
@@ -220,21 +221,21 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
     })()
     : [];
 
-  // Create small circle markers at ALL GPS points (except the last one which gets the main marker)
-  // These will be simple dots without titles/callouts
-  const trailPointMarkers = shouldShowTrail && trailPositions.length > 1 ? trailPositions
+  // Create small circle overlays at ALL GPS points (except the last one which gets the main marker)
+  // Using circles instead of markers to avoid native pin annotations
+  // Note: expo-maps circles use hex colors directly (rgba format may not work on iOS)
+  const trailPointCircles = shouldShowTrail && trailPositions.length > 1 ? trailPositions
     .slice(0, -1) // Exclude the last position (it gets the main marker)
-    .map((pos, index) => ({
-      id: `trail-point-${index}`,
-      coordinates: pos,
-      // Use a small colored dot - on iOS we can use SF Symbols
-      ...(Platform.OS === 'ios' ? {
-        sfSymbol: 'circle.fill',
-        tintColor: enabledUnit?.color || '#ec4899',
-      } : {
-        // For Android, we could use a custom icon or just skip
-      })
-    }))
+    .map((pos, index) => {
+      return {
+        id: `trail-point-${index}`,
+        center: pos,
+        radius: 0.8, // ~0.8 meters for a tiny dot
+        fillColor: baseColor,
+        strokeColor: baseColor,
+        strokeWidth: 0,
+      };
+    })
     : [];
 
   // Main marker at current position
@@ -249,11 +250,8 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
     } : {})
   } : null;
 
-  // Combine all markers - order matters for z-index (later = on top)
-  const markers = [
-    ...(Platform.OS === 'ios' ? trailPointMarkers : []), // Small dots at all GPS points except last
-    ...(currentMarker ? [currentMarker] : []) // Current position marker on top (only one with title)
-  ];
+  // Only the current position marker (trail points use circles now)
+  const markers = currentMarker ? [currentMarker] : [];
 
   console.log('🔍 Trail Debug - Trail rendering:', {
     totalPositions: positions.length,
@@ -263,7 +261,7 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
     trailColor: enabledUnit?.color || '#ec4899',
     unitName: enabledUnit?.name,
     polylineSegments: polylines.length,
-    trailDots: trailPointMarkers.length,
+    trailCircles: trailPointCircles.length,
     totalMarkers: markers.length
   });
 
@@ -298,6 +296,7 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
           }}
           cameraPosition={initialCamera}
           polylines={polylines}
+          circles={trailPointCircles}
           markers={markers}
         />
       </View>
@@ -319,6 +318,7 @@ const TrackerMap = forwardRef<TrackerMapRef, {}>((props, ref) => {
           }}
           cameraPosition={initialCamera}
           polylines={polylines}
+          circles={trailPointCircles}
           markers={markers}
         />
       </View>

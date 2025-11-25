@@ -13,7 +13,8 @@
       "config": {
         "googleMapsApiKey": "YOUR_IOS_API_KEY"
       },
-      "bundleIdentifier": "com.landrzz.ztrack"
+      "bundleIdentifier": "com.landrzz.ztrack",
+      "appleTeamId": "9WXH3M28XQ"
     },
     "android": {
       "adaptiveIcon": {
